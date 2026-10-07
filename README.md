@@ -80,6 +80,24 @@ contacts Xbox Live.
 An Xbox controller works as on the console. Without a controller, the title
 screen says *Press Any Key*, and any key or click continues.
 
+## Support the project
+
+If you enjoy this port and want to support my recomp and preservation work, you can leave an optional tip on Ko-fi.
+
+All projects and releases remain free. Support is completely optional and does not provide access to any copyrighted game content.
+
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
+
+## Support the project
+
+If you’ve enjoyed Aegis Wing XBLA PC Recomp and would like to support future updates and other recomp projects, you can tip me on Ko-fi.
+
+Your support helps me spend more time on ports, fixes, testing and new projects.
+
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
+
+All projects and releases remain free. Support is optional and does not provide access to any copyrighted game content.
+
 ## Known limitations
 
 - Windows only for now.
