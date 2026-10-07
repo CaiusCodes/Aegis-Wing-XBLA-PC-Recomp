@@ -1,13 +1,14 @@
 # Aegis Wing XBLA PC Recomp
 
 A native Windows PC version of **Aegis Wing**, the 2007 Xbox Live Arcade
-shoot-'em-up, made by statically recompiling the original Xbox 360 game with
-[ReXGlue](https://github.com/rexglue/rexglue-sdk). The game runs as a normal
-Windows program with keyboard, mouse and controller support, PC display
-settings, and LAN multiplayer in place of Xbox LIVE.
+shoot-'em-up, created through static recompilation with
+[ReXGlue](https://github.com/rexglue/rexglue-sdk). It supports up to 4K
+resolution and stable 60 FPS gameplay, keyboard and mouse, Xbox controllers,
+local four-player co-op, LAN multiplayer and online play through virtual LAN
+services.
 
-> **You need your own copy of Aegis Wing.** This project contains no game
-> files: no program, graphics, sound or music from the original game. Setup
+> **You need your own copy of Aegis Wing.** This project contains no original
+> game executable, graphics, sound, music or other game data. Setup
 > reads the Xbox 360 Aegis Wing package you provide, checks that it is the
 > supported version, and builds the game folder from it on your PC.
 
@@ -42,15 +43,21 @@ contacts Xbox Live.
 
 ## Features
 
-- Single player, local co-op for up to four players, and **LAN multiplayer**
-  (Multiplayer → Join LAN Game / Create LAN Game) over a local network or a
-  virtual LAN such as ZeroTier, Radmin VPN or Tailscale
-- Keyboard and mouse in menus and gameplay, alongside Xbox controllers
-- In-game **Settings** (Help & Options → Settings): player name, sound and
-  music volume, windowed or fullscreen, resolution up to 3840×2160, VSync and
-  an FPS counter
-- Local high-score table in place of the Xbox LIVE leaderboards
-- Portable install: everything lives in one folder
+- **Native Windows PC build**: no emulator, runs as a normal Windows program
+- **Single player** and **local co-op for up to 4 players** on one PC
+- **LAN multiplayer** (Multiplayer → Join LAN Game / Create LAN Game), and
+  **online multiplayer** through virtual LAN services such as ZeroTier,
+  Radmin VPN and Tailscale
+- **Up to 4K** (3840×2160) with **stable 60 FPS** gameplay
+- **Xbox controller** support, plus full **keyboard and mouse** support in
+  menus and gameplay
+- **Settings menu** (Help & Options → Settings): player name, sound and music
+  volume, windowed or fullscreen, resolution, VSync and an optional FPS
+  counter
+- **Local high scores** in place of the Xbox LIVE leaderboards
+- Optional **Stage Select unlock** in Setup (normally earned by completing the
+  game on Insane)
+- **Portable**: saves, settings and high scores stay in the game folder
 
 ### Controls
 
@@ -72,7 +79,7 @@ screen says *Press Any Key*, and any key or click continues.
 - Windows only for now.
 - Only the Xbox Live Arcade release with Title ID `5841083C` (game program
   version 0.0.1.3) is supported; Setup refuses other builds.
-- Xbox LIVE features are not available: online play works through LAN or a
+- Xbox LIVE features are not available: multiplayer works through LAN or a
   virtual LAN only, and achievements and online leaderboards are replaced or
   removed.
 - The local high-score table lists player one as "User" rather than the
