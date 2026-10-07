@@ -41,6 +41,8 @@ controller is optional.
 4. Choose **Install game**, pick any optional extras (fullscreen, desktop
    shortcut, Unlock Stage Select), then **Play now**.
 
+![Setup window](docs/screenshots/setup.png)
+
 Afterwards, start the game with `Game\Aegis Wing.exe`. Saves, high scores and
 settings stay inside the extracted folder, so it can be moved or backed up as
 a whole. Run Setup again at any time to reinstall or change the extras; your
