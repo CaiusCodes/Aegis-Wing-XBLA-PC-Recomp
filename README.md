@@ -127,6 +127,12 @@ applies the PC changes in `tools/Apply-GeneratedPcPatches.ps1`; the generated
 code is never edited by hand or committed. `.\tools\Make-Release.ps1` builds
 the release ZIP (Setup, README and licences; never any game data).
 
+## Support development
+
+If you enjoy my recomp projects and would like to support continued development, you can support me on [Ko-fi](https://ko-fi.com/caiuscodes).
+
+All projects and releases remain free. Support is completely optional and does not provide access to any copyrighted game content.
+
 ## Licence and credits
 
 This project's own code is released under the BSD 3-Clause licence (see
