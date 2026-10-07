@@ -1,0 +1,69 @@
+# Player names Setup picks from at random, and the PC Settings Player Name
+# row steps through. One per line, at most 15 characters (an Xbox gamertag),
+# plain ASCII without quotes or backslashes. Lines starting with # are ignored.
+Aegis Ace
+Wingman Gary
+Wingman
+Falco
+Slippy
+Hive Mind
+Giganto Gary
+Last Hope
+Hostile Harry
+Ship Me
+Missile Mike
+Burst Mode
+Red Fighter
+Blue Fighter
+Laser Larry
+Mine Sweeper
+Turret Tim
+Docking Dave
+Dock Me
+Clinger
+Pew Pew
+Big Space Al
+Space Cowboy
+Laser Lee
+Moon Man
+Void
+Black Hole
+Red Five
+Porkins Lives
+Lone Starr
+Spaceballs
+Space Baller
+Starbuck
+Zapp Brannigan
+Blade
+Kada
+Wingnut
+Square Nut
+Wing Dinger
+Ship Happens
+Harmless
+42
+Master Beef
+Barrel Roll
+Bazza
+Ceiling Cat
+O RLY
+Shoop
+Turtles
+Red Ringer
+xXSpaceGuyXx
+Ship Hugger
+Davo
+Swoopy
+Meat Popsicle
+Serenity
+Apollo
+Fox
+Peppy
+Shiny
+Sparkie
+Hudson
+Paulie
+Link
+Space Wizard
+Clippy

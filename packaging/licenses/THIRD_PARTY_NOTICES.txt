@@ -1,0 +1,66 @@
+THIRD-PARTY NOTICES
+===================
+
+Aegis Wing PC uses and distributes components from the following projects.
+The full license texts are in this licenses folder; texts for the libraries
+compiled into the ReXGlue runtime are in licenses\third-party.
+
+ReXGlue
+-------
+Project: ReXGlue Xbox 360 Recompilation Runtime and Toolkit
+License: BSD 3-Clause
+Files:   Game\Aegis Wing.exe, Game\rexruntime.dll, Game\rexgpu-xenos.dll
+
+ReXGlue includes portions derived from the Xenia project. See
+LICENSE-ReXGlue.txt for the complete copyright notices, conditions and
+disclaimer.
+
+Extract-STFS
+------------
+Component used: resources\installer\Extract-STFS.ps1
+License: GNU General Public License version 3 (see LICENSE-Extract-STFS.txt)
+Its STFS calculations are derived from Velocity
+(https://github.com/hetelek/Velocity, GPL-3.0). The script is a separate
+program run by Setup and is distributed as source code.
+
+Libraries compiled into the ReXGlue runtime
+-------------------------------------------
+  SDL3                     zlib License            third-party\SDL3.txt
+  FFmpeg (libavcodec,      LGPL 2.1 or later       third-party\FFmpeg.txt,
+    libavutil)                                     third-party\FFmpeg-LGPL-2.1.txt
+  libmspack                LGPL 2.1                third-party\libmspack-LGPL-2.1.txt
+  {fmt}                    MIT                     third-party\fmt.txt
+  spdlog                   MIT                     third-party\spdlog.txt
+  Snappy                   BSD 3-Clause            third-party\snappy.txt
+  xxHash                   BSD 2-Clause            third-party\xxHash.txt
+  o1heap                   MIT                     third-party\o1heap.txt
+  aes_128                  MIT                     third-party\aes_128.txt
+  DES implementation       MIT                     third-party\des.txt
+  Dear ImGui               MIT                     third-party\imgui.txt
+  toml++                   MIT                     third-party\tomlplusplus.txt
+  SIMDe                    MIT                     third-party\simde.txt
+  UTF8-CPP                 Boost 1.0               third-party\utfcpp.txt
+  volk                     MIT                     third-party\volk.txt
+  Vulkan Memory Allocator  MIT                     third-party\VulkanMemoryAllocator.txt
+  picosha2                 MIT (in its header)
+  stb_image                Public domain / MIT (in its header)
+  tiny-AES-c               The Unlicense (public domain)
+
+FFmpeg and libmspack are licensed under the GNU Lesser General Public
+License, version 2.1 (FFmpeg: "or later"). They are statically linked into
+Game\rexruntime.dll, and only their audio-decoding and cabinet-decompression
+parts are used. Their source code is available from the projects:
+  FFmpeg     https://ffmpeg.org/download.html
+  libmspack  https://www.cabextract.org.uk/libmspack/
+The exact versions used are the ones bundled with ReXGlue 0.9.0
+(thirdparty\FFmpeg and thirdparty\libmspack in the ReXGlue source tree).
+
+Microsoft Visual C++ runtime
+----------------------------
+Game\msvcp140*.dll and Game\vcruntime140*.dll are Microsoft's Visual C++
+runtime libraries, distributed alongside the game under the Microsoft Visual
+Studio redistributable terms so that no separate runtime install is needed.
+
+Aegis Wing, Xbox, Xbox 360, and related names and assets belong to their
+respective rights holders. Original Aegis Wing game data is not included with
+this release.

@@ -1,0 +1,4 @@
+// The game's icon: players start Game\Aegis Wing.exe directly (and the
+// desktop shortcut Setup makes points at it), so it carries the same icon as
+// Setup.
+1 ICON "../packaging/aegis_wing.ico"

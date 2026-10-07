@@ -1,0 +1,39 @@
+# --- Original game: never committed ---------------------------------------
+# The player's own extracted Aegis Wing package and the package itself.
+/game/
+/XBLA ROM/
+*.xex
+# Code translated from default.xex by tools/Regenerate-Code.ps1. Rebuilt from
+# the developer's own copy; generated/rexglue.cmake stays tracked.
+/generated/default/
+
+# --- Build output and release archives ------------------------------------
+# Every out/ folder, including the SDK's own (rexglue-sdk/out/).
+out/
+/build/
+/build-*/
+cmake-build-*/
+*.zip
+*.7z
+
+# --- Runtime data from running a build in place ---------------------------
+/userdata/
+/logs/
+*.log
+*.dmp
+crash_backtrace.txt
+
+# --- Private development notes (contain local paths) ----------------------
+CLAUDE_HANDOVER.md
+
+# --- IDE, tooling and OS files ---------------------------------------------
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+CMakeUserPresets.json
+compile_commands.json
+Thumbs.db
+desktop.ini
+.DS_Store

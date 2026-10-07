@@ -1,0 +1,16 @@
+# Portable release defaults. Settings and saves remain beside the game.
+license_mask = 1
+fullscreen = false
+vsync = true
+video_mode_width = 1280
+video_mode_height = 720
+# Fixed internal render scale (2560x1440); the game enforces it at startup.
+resolution_scale = 2
+# Keeps a saved 4K windowed mode visible on displays smaller than 4K.
+window_width = 1280
+window_height = 720
+show_fps = false
+# Keyboard fallback: arrows are the D-pad, Space is A/Confirm, Shift is
+# B/Back, and Escape is Start/Pause.
+mnk_mode = true
+readback_resolve = "fast"
