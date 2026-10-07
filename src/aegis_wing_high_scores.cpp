@@ -157,6 +157,14 @@ void SaveHighScoresUnlocked(
   }
 }
 
+// The table is tab-separated text, one row per line.
+std::string TableSafeName(std::string name) {
+  for (char& c : name) {
+    if (c == '\t' || c == '\r' || c == '\n') c = ' ';
+  }
+  return name.empty() ? "User" : name;
+}
+
 std::string FormatScore(int64_t score) {
   std::string digits = std::to_string(score);
   for (int index = static_cast<int>(digits.size()) - 3; index > 0;
@@ -225,7 +233,9 @@ void RecordCurrentHighScores(uint32_t scene_address) {
       }
       scores.push_back(HighScoreEntry{
           current_scores[player],
-          player == 0 ? "User" : "Player " + std::to_string(player + 1),
+          // Player one is whoever is at this PC: the name from Settings.
+          player == 0 ? TableSafeName(AegisWingApp::GetPcPlayerName())
+                      : "Player " + std::to_string(player + 1),
           timestamp});
     }
     std::stable_sort(scores.begin(), scores.end(), [](const auto& left,

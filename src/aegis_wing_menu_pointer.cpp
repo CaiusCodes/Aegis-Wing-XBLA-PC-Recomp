@@ -61,8 +61,13 @@ constexpr uint32_t kListCount = 0x88;
 
 // Menu rows are full-size buttons; the A/B legends along the bottom of a
 // menu are buttons too, but about 35 tall. Pointing at a legend must not
-// pull the focus off the menu.
+// pull the focus off the menu. The Game Over and level-complete menus have
+// rows that are only 35 tall but 287 wide, drawn as a pill about twice that
+// tall: a button that wide is a row, and its hit area is padded to the pill.
 constexpr float kMinRowHeight = 45.0f;
+constexpr float kMinWideRowWidth = 200.0f;
+constexpr float kMinWideRowHeight = 30.0f;
+constexpr float kShortRowHitHeight = 70.0f;
 constexpr size_t kMaxElements = 1024;
 
 class Guest {
@@ -119,6 +124,7 @@ struct Node {
   size_t end = 0;       // one past the last node of this subtree
   uint32_t list = 0;    // XuiList data, when this is a list
   bool row = false;     // a shown, enabled menu row (button)
+  float hit_pad = 0;    // hit area added above and below a short row
   bool list_item = false;
 };
 
@@ -151,11 +157,14 @@ void Collect(const Guest& g, uint32_t base, float parent_x, float parent_y,
   // the B Back legends are back buttons too, but narrow and short.
   const bool answer_button = g.TextIs(top_name, "XuiBackButton") && node.h >= 40.0f &&
                              node.w >= 200.0f;
+  const bool wide_short_row = g.TextIs(top_name, "XuiButton") && node.w >= kMinWideRowWidth &&
+                              node.h >= kMinWideRowHeight && node.h < kMinRowHeight;
   if ((node.h >= kMinRowHeight &&
        (g.TextIs(top_name, "XuiButton") || g.TextIs(top_name, "XuiNavButton"))) ||
-      answer_button) {
+      wide_short_row || answer_button) {
     const uint32_t control = LayerData(g, first, "XuiControl");
     node.row = control && (g.U32(control + kControlFlags) & 1) != 0;
+    if (node.row && wide_short_row) node.hit_pad = (kShortRowHitHeight - node.h) * 0.5f;
   }
   node.list_item = g.TextIs(top_name, "XuiListItem");
   node.list = LayerData(g, first, "XuiList");
@@ -170,7 +179,7 @@ void Collect(const Guest& g, uint32_t base, float parent_x, float parent_y,
 }
 
 bool Contains(const Node& n, float px, float py) {
-  return px >= n.x && px < n.x + n.w && py >= n.y && py < n.y + n.h;
+  return px >= n.x && px < n.x + n.w && py >= n.y - n.hit_pad && py < n.y + n.h + n.hit_pad;
 }
 
 // A hidden list (off screen) that the scene mirrors with panels of its own:

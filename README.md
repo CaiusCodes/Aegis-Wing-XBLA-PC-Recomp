@@ -82,8 +82,6 @@ screen says *Press Any Key*, and any key or click continues.
 - Xbox LIVE features are not available: multiplayer works through LAN or a
   virtual LAN only, and achievements and online leaderboards are replaced or
   removed.
-- The local high-score table lists player one as "User" rather than the
-  player name.
 - Setup and the game are not digitally signed, so Windows SmartScreen may warn
   the first time; choose *More info* → *Run anyway*. Windows also asks for
   network access the first time you join or create a LAN game.
