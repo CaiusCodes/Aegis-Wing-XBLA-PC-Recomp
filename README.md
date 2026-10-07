@@ -12,6 +12,14 @@ services.
 > reads the Xbox 360 Aegis Wing package you provide, checks that it is the
 > supported version, and builds the game folder from it on your PC.
 
+## Screenshots
+
+![Main menu](docs/screenshots/main-menu.png)
+
+![Multiplayer menu with Join LAN Game, Create LAN Game and Local Multiplayer](docs/screenshots/multiplayer-menu.png)
+
+![Settings menu with player name, volume, display mode, resolution, VSync and FPS counter](docs/screenshots/settings.png)
+
 ## Requirements
 
 - Windows 10 or 11, 64-bit
