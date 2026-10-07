@@ -14,7 +14,7 @@ services.
 
 ## Support the project
 
-If you’ve enjoyed Aegis Wing XBLA PC Recomp and would like to support future updates and other recomp projects, you can tip me on Ko-fi.
+If you enjoy the Aegis Wing XBLA PC Recomp and would like to support future projects, you can tip me on Ko-fi.
 
 [![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
 
