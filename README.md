@@ -3,22 +3,16 @@
 A native Windows PC version of **Aegis Wing**, the 2007 Xbox Live Arcade
 shoot-'em-up, created through static recompilation with
 [ReXGlue](https://github.com/rexglue/rexglue-sdk). It supports up to 4K
-resolution and stable 60 FPS gameplay, keyboard and mouse, Xbox controllers,
-local four-player co-op, LAN multiplayer and online play through virtual LAN
+resolution and a stable 60 FPS for gameplay. Keyboard and mouse, Xbox controllers,
+local four-player co-op, LAN and online multiplayer has also been added through virtual LAN
 services.
 
 > **You need your own copy of Aegis Wing.** This project contains no original
 > game executable, graphics, sound, music or other game data. Setup
 > reads the Xbox 360 Aegis Wing package you provide, checks that it is the
-> supported version, and builds the game folder from it on your PC.
-
-## Screenshots
+> supported version and builds the game folder from it on your PC.
 
 ![Main menu](docs/screenshots/main-menu.png)
-
-![Multiplayer menu with Join LAN Game, Create LAN Game and Local Multiplayer](docs/screenshots/multiplayer-menu.png)
-
-![Settings menu with player name, volume, display mode, resolution, VSync and FPS counter](docs/screenshots/settings.png)
 
 ## Requirements
 
@@ -58,12 +52,14 @@ contacts Xbox Live.
 - **LAN multiplayer** (Multiplayer → Join LAN Game / Create LAN Game), and
   **online multiplayer** through virtual LAN services such as ZeroTier,
   Radmin VPN and Tailscale
+  ![Multiplayer menu with Join LAN Game, Create LAN Game and Local Multiplayer](docs/screenshots/multiplayer-menu.png)
 - **Up to 4K** (3840×2160) with **stable 60 FPS** gameplay
 - **Xbox controller** support, plus full **keyboard and mouse** support in
   menus and gameplay
 - **Settings menu** (Help & Options → Settings): player name, sound and music
   volume, windowed or fullscreen, resolution, VSync and an optional FPS
   counter
+  ![Settings menu with player name, volume, display mode, resolution, VSync and FPS counter](docs/screenshots/settings.png)
 - **Local high scores** in place of the Xbox LIVE leaderboards
 - Optional **Stage Select unlock** in Setup (normally earned by completing the
   game on Insane)
