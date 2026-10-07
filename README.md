@@ -16,8 +16,6 @@ If you enjoy the Aegis Wing XBLA PC Recomp and would like to support future proj
 
 [![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
 
-All projects and releases remain free. Support is completely optional.
-
 ![Main menu](docs/screenshots/main-menu.png)
 
 ## Requirements
