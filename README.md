@@ -82,14 +82,6 @@ screen says *Press Any Key*, and any key or click continues.
 
 ## Support the project
 
-If you enjoy this port and want to support my recomp and preservation work, you can leave an optional tip on Ko-fi.
-
-All projects and releases remain free. Support is completely optional and does not provide access to any copyrighted game content.
-
-[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
-
-## Support the project
-
 If you’ve enjoyed Aegis Wing XBLA PC Recomp and would like to support future updates and other recomp projects, you can tip me on Ko-fi.
 
 Your support helps me spend more time on ports, fixes, testing and new projects.
@@ -144,12 +136,6 @@ The game is built to `out/build/win-amd64-release/Aegis Wing.exe`.
 applies the PC changes in `tools/Apply-GeneratedPcPatches.ps1`; the generated
 code is never edited by hand or committed. `.\tools\Make-Release.ps1` builds
 the release ZIP (Setup, README and licences; never any game data).
-
-## Support development
-
-If you enjoy my recomp projects and would like to support continued development, you can support me on [Ko-fi](https://ko-fi.com/caiuscodes).
-
-All projects and releases remain free. Support is completely optional and does not provide access to any copyrighted game content.
 
 ## Licence and credits
 
