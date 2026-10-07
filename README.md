@@ -12,6 +12,14 @@ services.
 > reads the Xbox 360 Aegis Wing package you provide, checks that it is the
 > supported version and builds the game folder from it on your PC.
 
+## Support the project
+
+If you’ve enjoyed Aegis Wing XBLA PC Recomp and would like to support future updates and other recomp projects, you can tip me on Ko-fi.
+
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
+
+All projects and releases remain free. Support is completely optional.
+
 ![Main menu](docs/screenshots/main-menu.png)
 
 ## Requirements
@@ -44,18 +52,6 @@ saves and settings are kept.
 
 Setup only reads your package and never changes it. Neither Setup nor the game
 contacts Xbox Live.
-
-## Support the project
-
-If you’ve enjoyed Aegis Wing XBLA PC Recomp and would like to support future updates and other recomp projects, you can tip me on Ko-fi.
-
-[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
-
-All projects and releases remain free. Support is completely optional.
-
-
-
-All projects and releases remain free. Support is optional and does not provide access to any copyrighted game content.
 
 ## Features
 
