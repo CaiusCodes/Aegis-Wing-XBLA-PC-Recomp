@@ -12,8 +12,6 @@ services.
 > reads the Xbox 360 Aegis Wing package you provide, checks that it is the
 > supported version and builds the game folder from it on your PC.
 
-## Support the project
-
 If you enjoy the Aegis Wing XBLA PC Recomp and would like to support future projects, you can tip me on Ko-fi.
 
 [![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
