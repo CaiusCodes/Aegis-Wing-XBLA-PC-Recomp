@@ -659,6 +659,19 @@ class AegisWingApp : public rex::ReXApp {
     aegis_wing::ApplyPcPatches(runtime());
   }
 
+  // Exit Game ends the game program. ReXGlue then quits through its normal
+  // subsystem teardown, which can deadlock: the window closes but the process
+  // stays, invisible, still holding the game's network port, and the next
+  // launch boots into a broken menu. Leave the way closing the window does
+  // (ReXApp::OnClosing): flush the logs and end the process. Settings, saves
+  // and high scores are already written when they change.
+  void OnGuestThreadExit(rex::system::XThread* thread) override {
+    (void)thread;
+    REXLOG_INFO("Game exited; ending the process.");
+    rex::FlushLogging();
+    std::_Exit(0);
+  }
+
   void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
     // Players get their settings from the game's own Help & Options >
     // Settings panel, which applies and saves through the config system
