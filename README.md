@@ -95,9 +95,9 @@ screen says *Press Any Key*, and any key or click continues.
 If something goes wrong, include the newest files from `Game\logs` when
 reporting it.
 
-## Building from source
+## For Developers
 
-For developers. You need Git, CMake, Ninja, Clang and Windows PowerShell, plus
+Building from source. You need Git, CMake, Ninja, Clang and Windows PowerShell, plus
 your own Aegis Wing package.
 
 ReXGlue is the `rexglue-sdk` submodule, pinned to upstream v0.9.0. This
