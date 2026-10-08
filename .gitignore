@@ -25,6 +25,7 @@ crash_backtrace.txt
 
 # --- Private development notes (contain local paths) ----------------------
 CLAUDE_HANDOVER.md
+CLAUDE.md
 
 # --- IDE, tooling and OS files ---------------------------------------------
 .vs/
