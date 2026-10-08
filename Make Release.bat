@@ -1,15 +1,13 @@
 @echo off
 setlocal
-set "AEGIS_REXSDK_DIR=%REXSDK_DIR%"
-if not defined AEGIS_REXSDK_DIR if exist "%~dp0..\rexglue-sdk-0.9.0\CMakeLists.txt" set "AEGIS_REXSDK_DIR=%~dp0..\rexglue-sdk-0.9.0"
-if not defined AEGIS_REXSDK_DIR (
+rem The presets build the SDK in-tree (rexglue-sdk\). If it is missing, run tools\Get-Sdk.ps1.
+if not exist "%~dp0rexglue-sdk\CMakeLists.txt" (
     echo.
-    echo The patched ReXGlue SDK source folder could not be found.
-    echo Set REXSDK_DIR to that folder, then run this file again.
+    echo rexglue-sdk is empty. Run tools\Get-Sdk.ps1 first, then run this file again.
     pause
     exit /b 1
 )
-cmake --preset win-amd64-release -DREXSDK_DIR="%AEGIS_REXSDK_DIR%"
+cmake --preset win-amd64-release
 if errorlevel 1 (
     echo.
     echo Release configuration failed. No release ZIP was created.
