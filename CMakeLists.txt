@@ -68,10 +68,10 @@ if(WIN32)
     add_executable(aegis_wing WIN32 ${AEGISWING_SOURCES})
     set_target_properties(aegis_wing PROPERTIES
         OUTPUT_NAME "Aegis Wing")
-    # "Setup Aegis Wing.exe" and the play launcher are built by
-    # packaging/Build-Stubs.ps1 (called from tools/Make-Release.ps1): they
-    # need an embedded asInvoker manifest, or Windows' installer detection
-    # demands administrator rights for anything named "Setup".
+    # The release's launcher ("Aegis Wing.exe" in the release root, with the
+    # setup window) is built by packaging/Build-Launcher.ps1, which
+    # tools/Make-Release.ps1 calls. This target is the game itself, which
+    # the release keeps in resources/runtime.
 else()
     add_executable(aegis_wing ${AEGISWING_SOURCES})
 endif()
@@ -87,7 +87,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
 target_compile_definitions(aegis_wing PRIVATE
     AEGISWING_VERSION="${AEGISWING_VERSION}")
 
-# The player-name list Setup picks from also feeds the PC Settings Player Name
+# The player-name list the launcher picks from also feeds the PC Settings Player Name
 # row: packaging/player_names.txt is the one copy, compiled in as a header.
 set(_aw_names_source "${CMAKE_CURRENT_SOURCE_DIR}/packaging/player_names.txt")
 file(STRINGS "${_aw_names_source}" _aw_names_lines)

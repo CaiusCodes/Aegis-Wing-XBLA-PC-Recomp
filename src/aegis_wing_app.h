@@ -35,6 +35,7 @@
 #include "aegis_wing_crash_report.h"
 #include "aegis_wing_high_scores.h"
 #include "aegis_wing_menu_pointer.h"
+#include "aegis_wing_paths.h"
 #include "aegis_wing_pc_patches.h"
 #include "aegis_wing_pc_settings.h"
 #include "aegis_wing_title_prompt.h"
@@ -596,12 +597,15 @@ class AegisWingApp : public rex::ReXApp {
   }
 
   void OnConfigurePaths(rex::PathConfig& paths) override {
-    const auto app_directory = rex::filesystem::GetExecutableFolder();
-    const auto user_data = app_directory / "userdata";
+    // In the portable release (this exe in resources/runtime) the data and
+    // settings live in resources/assets and resources/userdata; every other
+    // build keeps them beside the exe (see aegis_wing_paths.h).
+    const auto user_data = aegis_wing::UserDataPath();
 
-    paths.game_data_root = app_directory / "assets";
+    paths.game_data_root = aegis_wing::AssetsPath();
     paths.user_data_root = user_data;
     paths.cache_root = user_data / "cache";
+    paths.config_path = aegis_wing::ConfigPath();
 
 #ifdef _WIN32
     // Release packages intentionally omit the copyrighted game data. Give a
@@ -610,10 +614,10 @@ class AegisWingApp : public rex::ReXApp {
     if (!std::filesystem::exists(paths.game_data_root / "default.xex")) {
       MessageBoxW(
           nullptr,
-          L"Aegis Wing game data has not been installed yet.\n\n"
-          L"Run Setup Aegis Wing.exe and choose your Xbox 360 Aegis Wing "
-          L"package.",
-          L"Aegis Wing Setup",
+          L"Aegis Wing game data has not been imported yet.\n\n"
+          L"Open \"Aegis Wing.exe\" in the main Aegis Wing folder and select "
+          L"your Xbox 360 Aegis Wing package.",
+          L"Aegis Wing",
           MB_OK | MB_ICONINFORMATION);
       std::_Exit(0);
     }
@@ -693,8 +697,7 @@ class AegisWingApp : public rex::ReXApp {
   }
 
   void OnConfigureFonts(ImFontAtlas* atlas) override {
-    const auto media_directory =
-        rex::filesystem::GetExecutableFolder() / "assets" / "Media";
+    const auto media_directory = aegis_wing::AssetsPath() / "Media";
     const auto regular_path = (media_directory / "ERASMD.ttf").string();
     const auto bold_path = (media_directory / "ERASBD.ttf").string();
 

@@ -1,3 +1,18 @@
+# Builds the Aegis Wing portable release in out\release. The ZIP holds one folder:
+#
+#   Aegis Wing\
+#     Aegis Wing.exe              the launcher: the only program to open
+#     README.txt
+#     licenses\
+#     resources\
+#       runtime\                  the game (Aegis Wing.exe, rexruntime.dll,
+#                                 rexgpu-xenos.dll, VC++ runtime DLLs)
+#
+# The first time the launcher runs it imports the game data from the player's
+# own Xbox 360 package into resources\assets; saves and settings go to
+# resources\userdata. The release carries no original game content; the audit
+# below refuses to package anything that looks like game data, debug output or
+# user state.
 [CmdletBinding()]
 param(
     [string]$BuildPreset = "win-amd64-release",
@@ -15,7 +30,6 @@ if (-not $Version) { $Version = $builtVersion }
 if ($Version -ne $builtVersion) {
     throw "Version $Version does not match VERSION ($builtVersion), which the game was built with. Edit VERSION and rebuild."
 }
-
 if ($Version -notmatch '^[A-Za-z0-9._-]+$') {
     throw "Version may contain only letters, numbers, dots, underscores and hyphens."
 }
@@ -25,43 +39,29 @@ $buildRoot = Join-Path $projectRoot "out\build\$BuildPreset"
 $packagingRoot = Join-Path $projectRoot "packaging"
 $releaseRoot = Join-Path $projectRoot "out\release"
 $stagingRoot = Join-Path $releaseRoot ".package-staging"
-$projectName = "Aegis Wing XBLA Recomp"
-$stageRoot = Join-Path $stagingRoot $projectName
-$payloadRoot = Join-Path $stagingRoot "payload"
-$stubRoot = Join-Path $releaseRoot ".stubs"
-$zipPath = Join-Path $releaseRoot ("{0}-v{1}.zip" -f ($projectName -replace ' ', '-'), $Version)
-$setupExecutable = "Setup Aegis Wing.exe"
+$releaseName = "Aegis Wing"
+$stageRoot = Join-Path $stagingRoot $releaseName
+$zipPath = Join-Path $releaseRoot ("Aegis-Wing-XBLA-Recomp-v{0}.zip" -f $Version)
+$exeName = "Aegis Wing.exe"
 
-# The standard XBLA recomp release layout:
-#
-#   Aegis Wing XBLA Recomp\       (the ZIP holds exactly this)
-#     Setup Aegis Wing.exe        Setup, with the install payload appended
-#     README.txt
-#     licenses\
-#
-# Setup creates Game\ beside itself from its payload plus the player's own
-# package. The payload is an image of what Setup installs into Game\:
-#
-#   Aegis Wing.exe, rex*.dll, the Visual C++ runtime DLLs
-#   resources\installer\          Setup script, extractor, menu patcher, version.txt
-#   resources\defaults\           aegis_wing.toml (used when the player has none),
-#                                 player_names.txt (Setup picks a random player name)
-#   release-manifest.json         every file above, with size and SHA-256
-#
-# and Setup adds Game\assets (the unpacked, PC-patched game data), keeps
-# Game\userdata, Game\aegis_wing.toml and Game\logs, and writes its own
-# Game\release-manifest.json recording the install.
-$gameExecutable = "Aegis Wing.exe"
-$gameExecutablePath = Join-Path $buildRoot $gameExecutable
-if (-not (Test-Path -LiteralPath $gameExecutablePath -PathType Leaf)) {
-    throw "Required release file is missing: $gameExecutablePath"
+$gameExePath = Join-Path $buildRoot $exeName
+if (-not (Test-Path -LiteralPath $gameExePath -PathType Leaf)) {
+    throw "Required release file is missing: $gameExePath. Build $BuildPreset first."
 }
+# A release must never ship a binary older than the source it claims to be.
+$exeTime = (Get-Item -LiteralPath $gameExePath).LastWriteTimeUtc
+$newestSource = Get-ChildItem -LiteralPath (Join-Path $projectRoot "src") -File -Recurse |
+    Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+if ($newestSource.LastWriteTimeUtc -gt $exeTime) {
+    throw "$exeName is older than src\$($newestSource.Name). Rebuild before packaging."
+}
+
 # Include only the runtime family imported by this exact game executable.
 # Development builds use the rd suffix; Release builds use the plain names.
-$gameBinaryText = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($gameExecutablePath))
-$runtimeFiles = @($gameExecutable)
+$gameBinaryText = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($gameExePath))
+$runtimeFiles = @($exeName)
 if ($gameBinaryText.Contains("rexruntimerd.dll")) {
-    $runtimeFiles += @("rexruntimerd.dll", "rexgpu-xenosrd.dll")
+    throw "The game was built with the rd runtime family; the launcher expects rexruntime.dll and rexgpu-xenos.dll. Build $BuildPreset."
 }
 elseif ($gameBinaryText.Contains("rexruntime.dll")) {
     $runtimeFiles += @("rexruntime.dll", "rexgpu-xenos.dll")
@@ -69,57 +69,70 @@ elseif ($gameBinaryText.Contains("rexruntime.dll")) {
 else {
     throw "The Aegis Wing runtime dependency family could not be identified."
 }
-$installerTools = @("Install-AegisWing.ps1", "Extract-STFS.ps1", "Patch-PcMenuText.ps1")
-
 foreach ($file in $runtimeFiles) {
     if (-not (Test-Path -LiteralPath (Join-Path $buildRoot $file) -PathType Leaf)) {
         throw "Required release file is missing: $(Join-Path $buildRoot $file)"
     }
 }
-foreach ($file in $installerTools) {
-    if (-not (Test-Path -LiteralPath (Join-Path $projectRoot "tools\$file") -PathType Leaf)) {
-        throw "Required release tool is missing: tools\$file"
-    }
-}
-foreach ($file in @("README.txt", "aegis_wing.toml", "player_names.txt")) {
+foreach ($file in @("README.txt", "aegis_wing.toml", "player_names.txt", "aegis_wing.ico")) {
     if (-not (Test-Path -LiteralPath (Join-Path $packagingRoot $file) -PathType Leaf)) {
         throw "Required packaging file is missing: packaging\$file"
     }
 }
 
-# Setup, with the release version stamped in (the payload is appended below).
-if (Test-Path -LiteralPath $stubRoot) { Remove-Item -LiteralPath $stubRoot -Recurse -Force }
-& (Join-Path $packagingRoot "Build-Stubs.ps1") -Version $Version -OutputDir $stubRoot
+# The launcher copies a previous install's menu archive as it is only when it is
+# exactly the archive this release's menu patch produces; its constant must match
+# the development build's patched copy (made by tools\Patch-PcMenuText.ps1).
+$patchedMenus = Join-Path $buildRoot "assets\Media\Wingmen.xzp"
+if (Test-Path -LiteralPath $patchedMenus -PathType Leaf) {
+    $constant = [regex]::Match([IO.File]::ReadAllText((Join-Path $packagingRoot "launcher\core.cpp")),
+        'kPatchedMenuSha256 = "([0-9A-F]{64})"')
+    if (-not $constant.Success) { throw "kPatchedMenuSha256 was not found in packaging\launcher\core.cpp." }
+    $actual = (Get-FileHash -LiteralPath $patchedMenus -Algorithm SHA256).Hash
+    if ($actual -ne $constant.Groups[1].Value) {
+        throw "kPatchedMenuSha256 in packaging\launcher\core.cpp ($($constant.Groups[1].Value)) does not match the patched menu archive ($actual). Update the constant."
+    }
+}
 
+# --- 1. The launcher ---------------------------------------------------------------
+$launcherDir = Join-Path $projectRoot "out\launcher"
+& (Join-Path $packagingRoot "Build-Launcher.ps1") -Version $Version -OutputDir $launcherDir
+$launcher = Join-Path $launcherDir $exeName
+if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) { throw "The launcher was not built: $launcher" }
+
+# --- 2. Stage ------------------------------------------------------------------------
 if (Test-Path -LiteralPath $stagingRoot) { Remove-Item -LiteralPath $stagingRoot -Recurse -Force }
 if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
-$installerStage = Join-Path $payloadRoot "resources\installer"
-$defaultsStage = Join-Path $payloadRoot "resources\defaults"
-$gameStage = $payloadRoot
-foreach ($dir in @($installerStage, $defaultsStage, (Join-Path $stageRoot "licenses"))) {
+$licensesStage = Join-Path $stageRoot "licenses"
+$runtimeStage = Join-Path $stageRoot "resources\runtime"
+foreach ($dir in @($stageRoot, $licensesStage, $runtimeStage)) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
 }
 
-Copy-Item -LiteralPath (Join-Path $packagingRoot "README.txt") -Destination $stageRoot
-foreach ($file in $installerTools) { Copy-Item -LiteralPath (Join-Path $projectRoot "tools\$file") -Destination $installerStage }
-Set-Content -LiteralPath (Join-Path $installerStage "version.txt") -Value $Version -Encoding ASCII
-foreach ($file in $runtimeFiles) { Copy-Item -LiteralPath (Join-Path $buildRoot $file) -Destination $gameStage }
-Copy-Item -LiteralPath (Join-Path $packagingRoot "aegis_wing.toml") -Destination $defaultsStage
-Copy-Item -LiteralPath (Join-Path $packagingRoot "player_names.txt") -Destination $defaultsStage
+# Release root: the launcher, README and licences.
+Copy-Item -LiteralPath $launcher -Destination $stageRoot
+$readme = [System.IO.File]::ReadAllText((Join-Path $packagingRoot "README.txt")).Replace("@VERSION@", $Version)
+$readme = $readme -replace "`r?`n", "`r`n"  # Notepad-friendly line endings
+[System.IO.File]::WriteAllText((Join-Path $stageRoot "README.txt"), $readme, (New-Object System.Text.UTF8Encoding($false)))
+
+# resources\runtime: the game and its DLLs. The game reads its data from
+# resources\assets and resources\userdata (next to runtime) when it runs from
+# a folder named runtime.
+foreach ($file in $runtimeFiles) { Copy-Item -LiteralPath (Join-Path $buildRoot $file) -Destination $runtimeStage }
 
 # Every DLL the shipped binaries import must either come with Windows or be
 # shipped beside them. Microsoft's C++ runtime is shipped app-local (allowed
 # by the Visual Studio redistributable terms), so players do not need the
 # Visual C++ Redistributable installed. Any other missing import stops the
-# release.
+# release. The launcher itself is statically linked and imports only Windows DLLs.
 $readobj = "C:\Program Files\LLVM\bin\llvm-readobj.exe"
 if (-not (Test-Path -LiteralPath $readobj)) { throw "Missing build tool: $readobj" }
 $windowsDlls = @("kernel32", "user32", "gdi32", "advapi32", "shell32", "ole32", "oleaut32", "bcrypt",
     "dxgi", "d3d12", "dbghelp", "hid", "imm32", "setupapi", "iphlpapi", "version", "winmm", "ws2_32", "dinput8",
-    "comdlg32", "shlwapi", "ntdll", "xinput1_4", "cfgmgr32")
-$stagedNames = @(Get-ChildItem -LiteralPath $gameStage -File | ForEach-Object { $_.Name.ToLowerInvariant() })
+    "comdlg32", "shlwapi", "ntdll", "xinput1_4", "cfgmgr32", "gdiplus", "uxtheme")
+$stagedNames = @(Get-ChildItem -LiteralPath $runtimeStage -File | ForEach-Object { $_.Name.ToLowerInvariant() })
 $missingImports = New-Object System.Collections.Generic.List[string]
-foreach ($binary in Get-ChildItem -LiteralPath $gameStage -File | Where-Object { $_.Extension -in ".exe", ".dll" }) {
+foreach ($binary in @(Get-ChildItem -LiteralPath $runtimeStage -File | Where-Object { $_.Extension -in ".exe", ".dll" }) + @(Get-Item -LiteralPath (Join-Path $stageRoot $exeName))) {
     foreach ($line in (& $readobj --coff-imports $binary.FullName)) {
         if ($line -match 'Name:\s*(\S+\.dll)\s*$') {
             $dll = $Matches[1].ToLowerInvariant()
@@ -141,27 +154,32 @@ if ($missingImports.Count -gt 0) {
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
             throw "The game imports $dll, which is neither part of Windows nor in $($crtDir.FullName)."
         }
-        Copy-Item -LiteralPath $source -Destination $gameStage
+        Copy-Item -LiteralPath $source -Destination $runtimeStage
     }
     Write-Host ("Bundled {0} from {1}" -f ($missingImports -join ", "), $crtDir.FullName)
 }
-
-$licenseSource = Join-Path $packagingRoot "licenses"
-if (Test-Path -LiteralPath $licenseSource) {
-    Get-ChildItem -LiteralPath $licenseSource -File |
-        Where-Object Name -ne "LICENSE-Tracy.txt" |
-        Copy-Item -Destination (Join-Path $stageRoot "licenses")
+# The launcher starts the game only when these are all present.
+foreach ($needed in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+    if (-not (Test-Path -LiteralPath (Join-Path $runtimeStage $needed))) {
+        throw "$needed is not in resources\runtime, so the launcher would not start the game."
+    }
 }
-# This project's own BSD-3-Clause licence (it covers Game\Aegis Wing.exe's
-# host code, Setup and the scripts other than Extract-STFS).
-Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $packagingRoot) "LICENSE") `
-    -Destination (Join-Path $stageRoot "licenses\LICENSE-Aegis-Wing-XBLA-Recomp.txt")
+
+# Licences: the project's own, the STFS reader's (the launcher is GPL-3.0),
+# ReXGlue's and the third-party notices.
+$licenseSource = Join-Path $packagingRoot "licenses"
+Get-ChildItem -LiteralPath $licenseSource -File |
+    Where-Object Name -ne "LICENSE-Tracy.txt" |
+    Copy-Item -Destination $licensesStage
+# This project's own BSD-3-Clause licence (it covers the game's host code in
+# resources\runtime and the launcher's own code other than its STFS reader).
+Copy-Item -LiteralPath (Join-Path $projectRoot "LICENSE") -Destination (Join-Path $licensesStage "LICENSE-Aegis-Wing-XBLA-Recomp.txt")
 
 # License texts of the third-party code compiled into the ReXGlue runtime.
 $sdkLine = Select-String -LiteralPath (Join-Path $buildRoot "CMakeCache.txt") -Pattern '^REXSDK_DIR:PATH=(.+)$' | Select-Object -First 1
 if (-not $sdkLine) { throw "REXSDK_DIR is not set in the build's CMakeCache.txt." }
 $sdkThirdParty = Join-Path $sdkLine.Matches[0].Groups[1].Value "thirdparty"
-$thirdPartyStage = Join-Path $stageRoot "licenses\third-party"
+$thirdPartyStage = Join-Path $licensesStage "third-party"
 New-Item -ItemType Directory -Path $thirdPartyStage -Force | Out-Null
 $thirdPartyLicenses = [ordered]@{
     "SDL3"                  = "sdl3\LICENSE.txt"
@@ -188,38 +206,38 @@ foreach ($name in $thirdPartyLicenses.Keys) {
     Copy-Item -LiteralPath $source -Destination (Join-Path $thirdPartyStage "$name.txt")
 }
 
-# release-manifest.json: every payload file with its size and SHA-256, by its
-# path inside Game\. Setup checks the unpacked payload against it, installs it
-# into Game\, and keeps its own copy there to recognise its files on a rerun.
-$manifestFiles = @(Get-ChildItem -LiteralPath $payloadRoot -File -Recurse | Sort-Object FullName | ForEach-Object {
-        [ordered]@{
-            path   = $_.FullName.Substring($payloadRoot.Length + 1)
-            bytes  = $_.Length
-            sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
-        }
-    })
-$manifest = [ordered]@{
-    schema          = 1
-    product         = $projectName
-    game            = "Aegis Wing"
-    version         = $Version
-    setupExecutable = $setupExecutable
-    gameExecutable  = $gameExecutable
-    files           = $manifestFiles
-    generated       = @("assets")
-    userData        = @("aegis_wing.toml", "userdata", "logs")
-}
-[IO.File]::WriteAllText((Join-Path $payloadRoot "release-manifest.json"), ($manifest | ConvertTo-Json -Depth 5),
-    (New-Object Text.UTF8Encoding($false)))
-
-# The release must never carry game content: no extracted game files and no
-# Xbox 360 package (the project folder keeps the developer's own copy).
-foreach ($staged in @(Get-ChildItem -LiteralPath $stageRoot, $payloadRoot, (Join-Path $stubRoot $setupExecutable) -File -Recurse)) {
-    if ($staged.Name -eq "default.xex" -or $staged.Extension -eq ".xzp") {
-        throw "Game data found in the release staging folder: $($staged.FullName)"
+# --- 3. Audit: only the four root items, nothing from the game package, no
+# debug output, no user state ---------------------------------------------------------
+foreach ($item in @(Get-ChildItem -LiteralPath $stageRoot -Force)) {
+    if (@($exeName, "README.txt", "licenses", "resources") -notcontains $item.Name) {
+        throw "Unexpected item in the release root: $($item.Name)"
     }
-    if ($staged.Length -ge 0x10000) {
-        $stream = [IO.File]::OpenRead($staged.FullName)
+}
+foreach ($required in @($exeName, "README.txt", "licenses", "resources")) {
+    if (-not (Test-Path -LiteralPath (Join-Path $stageRoot $required))) { throw "Missing from the release root: $required" }
+}
+foreach ($item in @(Get-ChildItem -LiteralPath (Join-Path $stageRoot "resources") -Force)) {
+    if ($item.Name -ne "runtime") { throw "Unexpected item in resources: $($item.Name)" }
+}
+$staged = @(Get-ChildItem -LiteralPath $stageRoot -Recurse -Force)
+$forbiddenNames = @("assets", "userdata", "logs", "cache", "Game", "aegis_wing.toml", "default.xex",
+    "ArcadeInfo.xml", "Media", "guest_image.bin", "high_scores.tsv")
+$forbiddenPatterns = @("*.pdb", "*.xex", "*.bin", "*.log", "*.ilk", "*.exp", "*.lib", "*.ps1", "*.xzp", "*.xwb",
+    "*.xur", "*.ttf", "*.dmp", "*.tmp")
+foreach ($item in $staged) {
+    if ($forbiddenNames -contains $item.Name) { throw "Forbidden item entered the release: $($item.FullName)" }
+    foreach ($pattern in $forbiddenPatterns) {
+        if ($item.Name -like $pattern) { throw "Forbidden file type entered the release: $($item.FullName)" }
+    }
+    if (-not $item.PSIsContainer -and $item.Length -gt 64MB) {
+        throw "Unexpectedly large file in the release: $($item.FullName)"
+    }
+}
+$stagedFiles = @($staged | Where-Object { -not $_.PSIsContainer })
+foreach ($file in $stagedFiles) {
+    # No Xbox 360 package (the project folder keeps the developer's own copy).
+    if ($file.Length -ge 0x10000) {
+        $stream = [IO.File]::OpenRead($file.FullName)
         try {
             $magic = New-Object byte[] 4
             [void]$stream.Read($magic, 0, 4)
@@ -228,62 +246,71 @@ foreach ($staged in @(Get-ChildItem -LiteralPath $stageRoot, $payloadRoot, (Join
             $stream.Dispose()
         }
         if (@("LIVE", "PIRS", "CON ") -contains [Text.Encoding]::ASCII.GetString($magic)) {
-            throw "An Xbox 360 package found in the release staging folder: $($staged.FullName)"
+            throw "An Xbox 360 package found in the release staging folder: $($file.FullName)"
         }
     }
     # No file may carry a personal folder path (and with it a Windows user
     # name), in either 8-bit or UTF-16 text.
-    $content = [IO.File]::ReadAllBytes($staged.FullName)
+    $content = [IO.File]::ReadAllBytes($file.FullName)
     foreach ($text in @([Text.Encoding]::ASCII.GetString($content), [Text.Encoding]::Unicode.GetString($content))) {
         $leak = [regex]::Match($text, '[A-Za-z]:[\\/]Users[\\/][^\\/\x00]{1,64}[\\/]')
-        if ($leak.Success) {
-            throw "A personal folder path ($($leak.Value)) is embedded in $($staged.FullName)."
+        if ($leak.Success) { throw "A personal folder path ($($leak.Value)) is embedded in $($file.FullName)." }
+    }
+}
+
+# Byte-level check against the developer's extracted game data, when present:
+# no shipped file may be identical to any file from the package.
+$assetsRoot = Join-Path $projectRoot "game"
+$assetComparisons = 0
+if (Test-Path -LiteralPath $assetsRoot) {
+    $stagedSizes = @{}
+    foreach ($file in $stagedFiles) { $stagedSizes[$file.Length] = $true }
+    $stagedHashes = @{}
+    foreach ($file in $stagedFiles) {
+        $stagedHashes[(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash] = $file.FullName
+    }
+    foreach ($asset in @(Get-ChildItem -LiteralPath $assetsRoot -File -Recurse)) {
+        if (-not $stagedSizes.ContainsKey($asset.Length)) { continue }
+        $assetComparisons++
+        $hash = (Get-FileHash -LiteralPath $asset.FullName -Algorithm SHA256).Hash
+        if ($stagedHashes.ContainsKey($hash)) {
+            throw "Release file $($stagedHashes[$hash]) is identical to game data $($asset.FullName)"
         }
     }
 }
 
-# Setup = the Setup program with the payload appended (format documented in
-# packaging/installer_stub.cpp): per file a u16 UTF-8 path length, the path
-# ('/' separators), a u64 size and the bytes; then the u64 offset of the first
-# entry and the magic "XBLAPAY1".
-$setupPath = Join-Path $stageRoot $setupExecutable
-Copy-Item -LiteralPath (Join-Path $stubRoot $setupExecutable) -Destination $setupPath
-$stream = [IO.File]::Open($setupPath, [IO.FileMode]::Append, [IO.FileAccess]::Write)
-$writer = New-Object IO.BinaryWriter($stream)
+# --- 4. The release ZIP ---------------------------------------------------------------
+# Written entry by entry so every name uses "/" (Windows PowerShell's own
+# archive helpers write "\", which other unzip tools do not accept).
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zipStream = [System.IO.File]::Open($zipPath, [System.IO.FileMode]::CreateNew)
+$archive = New-Object System.IO.Compression.ZipArchive($zipStream, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
-    $payloadStart = [uint64]$stream.Position
-    foreach ($file in Get-ChildItem -LiteralPath $payloadRoot -File -Recurse | Sort-Object FullName) {
-        $relative = $file.FullName.Substring($payloadRoot.Length + 1).Replace('\', '/')
-        $pathBytes = [Text.Encoding]::UTF8.GetBytes($relative)
-        $writer.Write([uint16]$pathBytes.Length)
-        $writer.Write($pathBytes)
-        $writer.Write([uint64]$file.Length)
-        $writer.Write([IO.File]::ReadAllBytes($file.FullName))
+    $baseLength = (Split-Path -Parent $stageRoot).Length + 1
+    foreach ($file in $stagedFiles | Sort-Object FullName) {
+        $name = $file.FullName.Substring($baseLength).Replace('\', '/')
+        $entry = $archive.CreateEntry($name, [System.IO.Compression.CompressionLevel]::Optimal)
+        $entry.LastWriteTime = $file.LastWriteTime
+        $input = [System.IO.File]::OpenRead($file.FullName)
+        $output = $entry.Open()
+        try { $input.CopyTo($output) }
+        finally { $output.Dispose(); $input.Dispose() }
     }
-    $writer.Write($payloadStart)
-    $writer.Write([Text.Encoding]::ASCII.GetBytes("XBLAPAY1"))
 }
 finally {
-    $writer.Dispose()
+    $archive.Dispose()
+    $zipStream.Dispose()
 }
 
-# The release folder holds exactly Setup, README.txt and licenses\: no Game
-# folder, no runtime files, nothing else.
-$rootItems = @(Get-ChildItem -LiteralPath $stageRoot -Force | ForEach-Object { $_.Name } | Sort-Object)
-$expectedRoot = @("licenses", "README.txt", $setupExecutable) | Sort-Object
-if (Compare-Object $rootItems $expectedRoot) {
-    throw "The release folder holds more than Setup, README.txt and licenses: $($rootItems -join ', ')"
-}
-
-Compress-Archive -LiteralPath $stageRoot -DestinationPath $zipPath -CompressionLevel Optimal
-$releaseFiles = Get-ChildItem -LiteralPath $stageRoot -File -Recurse
-$releaseSize = ($releaseFiles | Measure-Object Length -Sum).Sum
+$releaseSize = ($stagedFiles | Measure-Object -Property Length -Sum).Sum
 $zip = Get-Item -LiteralPath $zipPath
 $hash = Get-FileHash -LiteralPath $zipPath -Algorithm SHA256
-
-Write-Host "Clean Aegis Wing release created successfully."
-Write-Host "Folder: $stageRoot"
-Write-Host "ZIP:    $zipPath"
-Write-Host "Files:  $($releaseFiles.Count)"
-Write-Host ("Size:   {0:N2} MB uncompressed; {1:N2} MB ZIP" -f ($releaseSize / 1MB), ($zip.Length / 1MB))
-Write-Host "SHA256: $($hash.Hash)"
+Write-Host "Portable Aegis Wing release created."
+Write-Host "Folder:  $stageRoot"
+Write-Host "ZIP:     $zipPath"
+Write-Host "Root:    $(@(Get-ChildItem -LiteralPath $stageRoot | ForEach-Object Name) -join ', ')"
+Write-Host "Runtime: $(@(Get-ChildItem -LiteralPath $runtimeStage -File).Count) files in resources\runtime"
+Write-Host "Audit:   only the four root items; no forbidden items; $assetComparisons same-size game files compared, none identical"
+Write-Host ("Size:    {0:N2} MB uncompressed; {1:N2} MB ZIP" -f ($releaseSize / 1MB), ($zip.Length / 1MB))
+Write-Host "SHA256:  $($hash.Hash)"

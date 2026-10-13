@@ -23,9 +23,14 @@ It does NOT cover, and grants no rights in:
     BSD-3-Clause licence (rexglue-sdk/LICENSE).
   - Third-party libraries used by ReXGlue, which remain under their own
     licences (see packaging/licenses/THIRD_PARTY_NOTICES.txt).
-  - tools/Extract-STFS.ps1, which is derived from Velocity and licensed under
-    the GNU General Public License version 3
-    (packaging/licenses/LICENSE-Extract-STFS.txt).
+  - tools/Extract-STFS.ps1 and packaging/launcher/stfs.cpp and stfs.h, which
+    are derived from Velocity and licensed under the GNU General Public
+    License version 3 (packaging/licenses/LICENSE-Extract-STFS.txt). Because
+    stfs.cpp is compiled into the launcher, the launcher program ("Aegis
+    Wing.exe" in the release root) as a whole is distributed under the
+    GPL-3.0; its complete source is packaging/launcher/ in this repository.
+    The game itself (resources/runtime in a release) is a separate program
+    and stays under the licences above.
 
 BSD 3-Clause License
 --------------------

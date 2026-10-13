@@ -8,9 +8,10 @@ local four-player co-op, LAN and online multiplayer has also been added through 
 services.
 
 > **You need your own copy of Aegis Wing.** This project contains no original
-> game executable, graphics, sound, music or other game data. Setup
-> reads the Xbox 360 Aegis Wing package you provide, checks that it is the
-> supported version and builds the game folder from it on your PC.
+> game executable, graphics, sound, music or other game data. The first time
+> you start it, it reads the Xbox 360 Aegis Wing package you provide, checks
+> that it is the supported version and imports the game data into its own
+> folder on your PC.
 
 If you enjoy the Aegis Wing XBLA PC Recomp and would like to support future projects, you can tip me on Ko-fi.
 
@@ -33,21 +34,28 @@ controller is optional.
 1. Download the release ZIP from the
    [Releases](https://github.com/CaiusCodes/Aegis-Wing-XBLA-PC-Recomp/releases)
    page and extract it to a writable folder (not Program Files).
-2. Run **Setup Aegis Wing.exe**.
-3. Choose your Aegis Wing package, or drag it onto the Setup window. Setup
-   tells you straight away if it is the wrong file or an unsupported version.
-4. Choose **Install game**, pick any optional extras (fullscreen, desktop
-   shortcut, Unlock Stage Select), then **Play now**.
+2. Open **Aegis Wing.exe**. The first time, a setup window opens. If your
+   package sits beside it (or in a `Game Package` folder next to it) it is
+   found and imported automatically; otherwise drag it onto the window or
+   choose **Browse package**. The window tells you straight away if it is the
+   wrong file or an unsupported version.
+3. Pick any optional extras (Unlock Stage Select, fullscreen, desktop
+   shortcut; all off unless ticked), then press **PLAY**.
 
 ![Setup window](docs/screenshots/setup.png)
 
-Afterwards, start the game with `Game\Aegis Wing.exe`. Saves, high scores and
-settings stay inside the extracted folder, so it can be moved or backed up as
-a whole. Run Setup again at any time to reinstall or change the extras; your
-saves and settings are kept.
+From then on `Aegis Wing.exe` starts the game straight away. The game runs
+from `resources\runtime`, the imported game data is in `resources\assets` and
+saves, high scores and settings are in `resources\userdata`, so the folder can
+be moved or backed up as a whole. Start `Aegis Wing.exe --setup` to change the
+extras or import again; your saves and settings are kept. Coming from release
+0.9.0 or 0.9.1 (Setup Aegis Wing.exe and a Game folder)? Extract this release
+next to it or inside it and the old install is found, with your saves and
+settings carried over; the old folder is never changed.
 
-Setup only reads your package and never changes it. Neither Setup nor the game
-contacts Xbox Live.
+The launcher only reads your package and never changes it. It needs no
+installation, no administrator rights and writes nothing to the registry.
+Neither it nor the game contacts Xbox Live.
 
 ## Features
 
@@ -65,8 +73,8 @@ contacts Xbox Live.
   counter
   ![Settings menu with player name, volume, display mode, resolution, VSync and FPS counter](docs/screenshots/settings.png)
 - **Local high scores** in place of the Xbox LIVE leaderboards
-- Optional **Stage Select unlock** in Setup (normally earned by completing the
-  game on Insane)
+- Optional **Stage Select unlock** in the setup window (normally earned by
+  completing the game on Insane)
 - **Portable**: saves, settings and high scores stay in the game folder
 
 ### Controls
@@ -88,16 +96,16 @@ screen says *Press Any Key*, and any key or click continues.
 
 - Windows only for now.
 - Only the Xbox Live Arcade release with Title ID `5841083C` (game program
-  version 0.0.1.3) is supported; Setup refuses other builds.
+  version 0.0.1.3) is supported; the launcher refuses other builds.
 - Xbox LIVE features are not available: multiplayer works through LAN or a
   virtual LAN only, and achievements and online leaderboards are replaced or
   removed.
-- Setup and the game are not digitally signed, so Windows SmartScreen may warn
-  the first time; choose *More info* → *Run anyway*. Windows also asks for
-  network access the first time you join or create a LAN game.
+- The launcher and the game are not digitally signed, so Windows SmartScreen
+  may warn the first time; choose *More info* → *Run anyway*. Windows also
+  asks for network access the first time you join or create a LAN game.
 
-If something goes wrong, include the newest files from `Game\logs` when
-reporting it.
+If something goes wrong, include the newest files from
+`resources\runtime\logs` when reporting it.
 
 ## For Developers
 
@@ -129,14 +137,21 @@ The game is built to `out/build/win-amd64-release/Aegis Wing.exe`.
 `tools\Regenerate-Code.ps1` checks the XEX, runs the code generator and
 applies the PC changes in `tools/Apply-GeneratedPcPatches.ps1`; the generated
 code is never edited by hand or committed. `.\tools\Make-Release.ps1` builds
-the release ZIP (Setup, README and licences; never any game data).
+the release ZIP: the launcher (`packaging/launcher`, built by
+`packaging/Build-Launcher.ps1`), the game in `resources\runtime`, README and
+licences; never any game data. A game exe that sits in a folder named
+`runtime` keeps its data in the folder above it; every other build (such as
+`out/build/...`) keeps `assets` and `userdata` beside the exe.
 
 ## Licence and credits
 
 This project's own code is released under the BSD 3-Clause licence (see
 [LICENSE](LICENSE), which also lists what it does not cover).
-`tools/Extract-STFS.ps1` is derived from
-[Velocity](https://github.com/hetelek/Velocity) and is GPL-3.0. ReXGlue,
+`tools/Extract-STFS.ps1` and the launcher's package reader
+(`packaging/launcher/stfs.cpp`) are derived from
+[Velocity](https://github.com/hetelek/Velocity) and are GPL-3.0, which makes
+the launcher program (`Aegis Wing.exe` in the release root) GPL-3.0 as a
+whole; the game in `resources\runtime` is a separate program. ReXGlue,
 which includes code derived from [Xenia](https://xenia.jp), and its
 third-party libraries keep their own licences; see
 [packaging/licenses](packaging/licenses).

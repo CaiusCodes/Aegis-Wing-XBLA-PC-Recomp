@@ -92,8 +92,7 @@ uint32_t ReadGamepadButtons() {
 }
 
 std::filesystem::path HighScorePath() {
-  return rex::filesystem::GetExecutableFolder() / "userdata" /
-         "high_scores.tsv";
+  return aegis_wing::UserDataPath() / "high_scores.tsv";
 }
 
 std::vector<aegis_wing::HighScoreEntry> LoadHighScoresUnlocked() {

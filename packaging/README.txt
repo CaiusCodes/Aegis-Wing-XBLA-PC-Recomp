@@ -1,5 +1,6 @@
 AEGIS WING XBLA RECOMP
 ======================
+Version @VERSION@
 
 This is a portable native Windows recompilation of the Xbox 360 release of
 Aegis Wing, built with ReXGlue.
@@ -23,25 +24,31 @@ Requirements:
 FIRST-TIME SETUP
 ----------------
 
-1. Extract the release ZIP to a writable folder. You get one folder,
-   "Aegis Wing XBLA Recomp", holding Setup, this README and licenses.
-2. Run "Setup Aegis Wing.exe".
-3. Choose your Aegis Wing package, or drag it onto the Setup window. Setup
-   checks it straight away and tells you if it is the wrong file.
-4. Choose Install game. Setup creates a Game folder beside itself, unpacks
-   your package into it, applies the PC menu updates, and then offers a few
-   optional extras (Unlock Stage Select, fullscreen, a desktop shortcut).
-   None is switched on unless you tick it.
-5. Choose Play now, or later run "Game\Aegis Wing.exe".
+1. Extract the release ZIP to a writable folder (not Program Files). You get
+   one folder, "Aegis Wing".
+   Tip: put your package file beside "Aegis Wing.exe", or in a folder called
+   "Game Package" next to it, and it is found automatically.
+2. Open "Aegis Wing.exe". The first time, the setup window opens.
+3. If your package was found it is checked and imported straight away.
+   Otherwise drag the package onto the window, or click "Browse package".
+   Setup checks it first and tells you if it is the wrong file or an
+   unsupported version; the import starts as soon as it is accepted, and you
+   can cancel it at any time.
+4. Tick any extras you want (all optional, all off unless ticked):
+     Unlock Stage Select, Start in fullscreen, Create desktop shortcut.
+5. Click "PLAY" once it says AEGIS WING IS READY.
 
-Setup only reads your package; it never changes it. It does not contact
-Xbox Live or require an Xbox Live sign-in.
+From then on, opening "Aegis Wing.exe" starts the game straight away.
+Setup only reads your package; it never changes, moves or deletes it, and it
+is not needed again. Nothing is installed outside this folder, no
+administrator rights are needed, and nothing is written to the registry. The
+launcher does not download anything and does not contact Xbox LIVE.
 
 CONTROLS
 --------
 
-An Xbox controller works as on the console. Keyboard and mouse are always
-on as well:
+An Xbox controller works as on the console. Keyboard and mouse are always on
+as well:
 
   Arrow keys        Fly / move through menus (D-pad)
   Space             A (fire, confirm)
@@ -57,75 +64,83 @@ key or mouse click continues.
 PLAYER NAME AND LAN GAMES
 -------------------------
 
-Setup gives you a random player name, shown in the lobby, during play and in
-LAN games. To change it, open Help & Options, Settings and choose Player
-Name: Left and Right (or A) pick another name from the list, and Enter or a
-mouse click lets you type your own (up to 15 characters).
+You get a random player name, shown in the lobby, during play and in LAN
+games. To change it, open Help & Options, Settings and choose Player Name:
+Left and Right (or A) pick another name from the list, and Enter or a mouse
+click lets you type your own (up to 15 characters).
 
 Join LAN Game and Create LAN Game, under Multiplayer, play over your local
-network or a virtual LAN. Windows asks once whether Aegis Wing may use the
-network the first time you join or create a LAN game; allow it for LAN play.
-Single player and local multiplayer never use the network.
+network or a virtual LAN (Radmin VPN, ZeroTier, Tailscale, Hamachi and the
+like). Windows asks once whether Aegis Wing may use the network the first
+time you join or create a LAN game; allow it for LAN play. Single player and
+local multiplayer never use the network.
 
 PORTABLE DATA
 -------------
 
-Everything stays inside the extracted "Aegis Wing XBLA Recomp" folder:
+Everything stays inside the extracted "Aegis Wing" folder:
 
-  Setup Aegis Wing.exe        Installs the game, or changes your extras later
+  Aegis Wing.exe              Open this to play (and to set up the first time)
   README.txt, licenses\       This file and the third-party notices
-  Game\                       Created by Setup:
-    Aegis Wing.exe            Starts the game
-    assets\                   Game data unpacked from your package
-    resources\                Setup's scripts and the default settings
-    release-manifest.json     The files this release installed
-    userdata\                 Saves, high scores and the local profile
-    aegis_wing.toml           Display, audio and control settings
-    logs\                     Game and Setup logs
+  resources\
+    runtime\                  The game program and its DLLs
+      logs\                   Game and setup logs
+    assets\                   Game data imported from your package
+    userdata\                 Saves, high scores, caches and aegis_wing.toml
+                              (display, audio and control settings)
 
-To move or back up the installation, copy the entire folder. Do not rename
-individual numbered folders inside Game\userdata.
+Paths are relative, so the folder can be moved or copied anywhere (a USB
+drive works too). To back up your progress, copy resources\userdata. Do not
+rename the numbered folders inside it.
 
-UPDATING FROM AN EARLIER BUILD
-------------------------------
+SETUP AGAIN, UPDATING AND OLDER RELEASES
+----------------------------------------
 
-Extract this release over the old folder and run Setup. Your saves and
-settings are kept (and move into the Game folder if an older build kept them
-in the folder root). Setup also tidies away what earlier releases kept in the
-folder root: the old "Aegis Wing.exe" play launcher, the resources folder and
-the Setup logs. It only removes files it recognises as its own; anything else
-stays where it is.
+To change your extras or import your package again, start Aegis Wing.exe with
+--setup (for example from a shortcut whose target ends in
+"Aegis Wing.exe" --setup). Importing again replaces resources\assets only;
+saves and settings in resources\userdata are kept. If a needed file goes
+missing, opening Aegis Wing.exe shows the setup window again by itself.
 
-REINSTALLING OR CHANGING EXTRAS
--------------------------------
+To update, extract a new release over this folder (your resources\assets and
+resources\userdata are kept), or into a new folder: setup finds the old copy
+next to it and imports from it.
 
-Run "Setup Aegis Wing.exe" again at any time. Installing again replaces the
-game files Setup installed and rebuilds Game\assets from your package, but
-keeps your saves, high scores, settings and logs. To only change the extras,
-choose Change extras.
-
-CURRENT COMPATIBILITY
----------------------
-
-Working:
-  - Single-player, local multiplayer and LAN / virtual LAN multiplayer
-  - Controller, keyboard and mouse input, audio, pause/resume and PC display
-    settings
-  - Portable saves, local high scores and configuration
-  - Clean application exit
-
-The Xbox Live-only menus, warnings, leaderboards and achievements UI are not
-used by this PC build.
+Coming from an earlier release (Setup Aegis Wing.exe and a Game folder):
+extract this release into the old release folder, inside it, or next to it.
+Setup finds the old Game folder and offers it alongside any package, so you
+do not need the package again, and your saves, high scores and settings come
+with it. The old folder is never changed or deleted; remove it yourself once
+you are happy. (An install from a release older than 0.9.0 has older menu
+files: setup then asks for your package instead, and still carries your saves
+over.)
 
 TROUBLESHOOTING
 ---------------
 
-Extract the ZIP before running Setup. Do not run it from inside the ZIP.
+Extract the ZIP first. Do not run Aegis Wing.exe from inside the ZIP.
 
-Setup and the game are not digitally signed, so the first time you run Setup
+Aegis Wing.exe is not digitally signed, so the first time you open it
 Windows may show "Windows protected your PC". Choose More info, then Run
-anyway. If a problem occurs, include the newest files from Game\logs when
-reporting it. If Setup fails before the Game folder exists, its log is in the
-"Aegis Wing Setup logs" folder inside your temporary folder (%TEMP%).
+anyway.
 
-Third-party notices and license texts are available in the licenses folder.
+If setup rejects your package, the reason is shown in the window and in
+resources\runtime\logs\setup.log. When reporting a problem, include the
+newest files from resources\runtime\logs.
+
+LEGAL
+-----
+
+Aegis Wing, Xbox, Xbox 360 and related names and marks belong to their
+respective owners. This is an unofficial fan project, not affiliated with or
+endorsed by them. Third-party notices and license texts are in the licenses
+folder.
+
+After setup, resources\assets contains data from your own package. Do not
+share the folder once you have played from it; share the release ZIP instead.
+
+Aegis Wing.exe in the main folder (the launcher and setup window) includes a
+package reader derived from Velocity and is licensed under the GNU GPL
+version 3 (licenses\LICENSE-Extract-STFS.txt); its source is in the project
+repository. The game in resources\runtime is a separate program under the
+BSD 3-Clause licence of this project and ReXGlue (licenses folder).

@@ -1,20 +1,27 @@
-Extract-STFS.ps1 (resources\installer\Extract-STFS.ps1 in a release;
-tools/Extract-STFS.ps1 in the source repository)
-=====================================================================
+Velocity-derived STFS code: tools/Extract-STFS.ps1 and the launcher's
+packaging/launcher/stfs.cpp and stfs.h
+===========================================================================
 
 Copyright (C) 2026 the Aegis Wing XBLA Recomp authors.
 
-The STFS block-offset and hash-table calculations in this script are derived
+The STFS block-offset and hash-table calculations in these files are derived
 from Velocity (https://github.com/hetelek/Velocity), Copyright (C) the
 Velocity authors, which is licensed under the GNU General Public License
-version 3. This script is therefore licensed under the GNU General Public
+version 3. These files are therefore licensed under the GNU General Public
 License version 3 (SPDX: GPL-3.0-only), reproduced in full below.
 
-Extract-STFS.ps1 is a separate program that Setup runs to read the player's
-Xbox 360 package. It is distributed as source code, so the complete
-corresponding source is the script itself. It is the only part of this
-project under the GPL; the project's own code is otherwise licensed under
-BSD-3-Clause (see LICENSE in the source repository).
+stfs.cpp and stfs.h are compiled into the launcher, "Aegis Wing.exe" in the
+root of a release, which reads the player's Xbox 360 package. The launcher
+as a whole is therefore distributed under the GPL-3.0. Its complete
+corresponding source is the packaging/launcher/ folder of the project
+repository (https://github.com/CaiusCodes/Aegis-Wing-XBLA-PC-Recomp), built
+with packaging/Build-Launcher.ps1. Extract-STFS.ps1 is the same reader as a
+PowerShell script for developers and is not part of a release.
+
+The game itself (resources\runtime in a release) is a separate program that
+the launcher starts; it does not contain this code and is not under the GPL.
+The rest of the project's own code is under the BSD-3-Clause licence in
+LICENSE in the source repository.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS

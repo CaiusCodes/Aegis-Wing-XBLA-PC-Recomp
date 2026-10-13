@@ -16,6 +16,7 @@
 
 #include "generated/default/aegis_wing_init.h"
 #include "aegis_wing_app.h"
+#include "aegis_wing_paths.h"
 
 namespace aegis_wing {
 namespace {
@@ -70,8 +71,7 @@ void CaptureSessionStats(uint64_t xuid, uint32_t view_count,
 
   std::lock_guard lock(capture_mutex);
 
-  const auto user_data =
-      rex::filesystem::GetExecutableFolder() / "userdata";
+  const auto user_data = aegis_wing::UserDataPath();
   std::error_code error;
   std::filesystem::create_directories(user_data, error);
   if (error) {

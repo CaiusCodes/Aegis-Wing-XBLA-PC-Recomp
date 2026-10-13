@@ -14,7 +14,7 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-cmake --build --preset win-amd64-release --target aegis_wing aegis_wing_installer
+cmake --build --preset win-amd64-release --target aegis_wing
 if errorlevel 1 (
     echo.
     echo Build failed. No release ZIP was created.
