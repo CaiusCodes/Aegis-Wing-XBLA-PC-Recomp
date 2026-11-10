@@ -26,6 +26,9 @@ class AegisWingHighScoresDialog final : public rex::ui::ImGuiDialog {
   void Open();
   void Close();
 
+ // Passive while closed (see AegisWingPcSettingsDialog).
+  bool WantsContinuousRedraw() const override { return visible_; }
+
  protected:
   void OnDraw(ImGuiIO& io) override;
 

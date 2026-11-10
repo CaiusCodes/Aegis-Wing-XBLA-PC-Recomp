@@ -829,6 +829,39 @@ DEFINE_REX_FUNC(sub_9212FD00) {
 	}
 '@
     }
+    @{
+        Id       = 'recomp4-host-declarations'
+        Purpose  = 'Declare the host hook the GPU-wait patch in this file calls.'
+        File     = 'aegis_wing_recomp.4.cpp'
+        Function = $null
+        Kind     = 'InsertAfter'
+        Anchor   = @'
+#include "aegis_wing_init.h"
+'@
+        Text     = @'
+void AegisWing_GpuWaitBackoff();
+'@
+    }
+    @{
+        Id       = 'gpu-wait-backoff'
+        Purpose  = 'GPU-completion poll: back off (yield, then 0.5 ms sleeps) while still waiting, instead of spinning a CPU core.'
+        File     = 'aegis_wing_recomp.4.cpp'
+        Function = 'sub_920EF458'
+        Kind     = 'InsertAfter'
+        Anchor   = @'
+	// cmplwi cr6,r11,5000
+	ctx.cr6.compare<uint32_t>(ctx.r11.u32, 5000, ctx.xer);
+	// bge cr6,0x920ef518
+	if (!ctx.cr6.lt) goto loc_920EF518;
+'@
+        Text     = @'
+	// PC port: the GPU has not caught up yet and the caller will poll again
+	// at once. On the Xbox 360 that spin shared a core with other hardware
+	// threads; here it burned a whole CPU core (the game's main thread at
+	// ~100%). Yield first, then sleep in 0.5 ms steps (see main.cpp).
+	AegisWing_GpuWaitBackoff();
+'@
+    }
 )
 
 # Generated code and the here-strings above are compared with LF line endings,

@@ -129,7 +129,7 @@ $readobj = "C:\Program Files\LLVM\bin\llvm-readobj.exe"
 if (-not (Test-Path -LiteralPath $readobj)) { throw "Missing build tool: $readobj" }
 $windowsDlls = @("kernel32", "user32", "gdi32", "advapi32", "shell32", "ole32", "oleaut32", "bcrypt",
     "dxgi", "d3d12", "dbghelp", "hid", "imm32", "setupapi", "iphlpapi", "version", "winmm", "ws2_32", "dinput8",
-    "comdlg32", "shlwapi", "ntdll", "xinput1_4", "cfgmgr32", "gdiplus", "uxtheme")
+    "comdlg32", "shlwapi", "ntdll", "xinput1_4", "cfgmgr32", "gdiplus", "uxtheme", "winhttp")
 $stagedNames = @(Get-ChildItem -LiteralPath $runtimeStage -File | ForEach-Object { $_.Name.ToLowerInvariant() })
 $missingImports = New-Object System.Collections.Generic.List[string]
 foreach ($binary in @(Get-ChildItem -LiteralPath $runtimeStage -File | Where-Object { $_.Extension -in ".exe", ".dll" }) + @(Get-Item -LiteralPath (Join-Path $stageRoot $exeName))) {
@@ -199,6 +199,11 @@ $thirdPartyLicenses = [ordered]@{
     "utfcpp"                = "utfcpp\LICENSE"
     "volk"                  = "volk\LICENSE.md"
     "VulkanMemoryAllocator" = "vulkan-memory-allocator\LICENSE.txt"
+    # The Vulkan backend (REXGLUE_USE_VULKAN=ON in CMakePresets.json).
+    "glslang"               = "glslang\LICENSE.txt"
+    "SPIRV-Tools"           = "spirv-tools\LICENSE"
+    "SPIRV-Headers"         = "spirv-headers\LICENSE"
+    "Vulkan-Headers"        = "vulkan-headers\LICENSE.md"
 }
 foreach ($name in $thirdPartyLicenses.Keys) {
     $source = Join-Path $sdkThirdParty $thirdPartyLicenses[$name]
@@ -221,7 +226,7 @@ foreach ($item in @(Get-ChildItem -LiteralPath (Join-Path $stageRoot "resources"
 }
 $staged = @(Get-ChildItem -LiteralPath $stageRoot -Recurse -Force)
 $forbiddenNames = @("assets", "userdata", "logs", "cache", "Game", "aegis_wing.toml", "default.xex",
-    "ArcadeInfo.xml", "Media", "guest_image.bin", "high_scores.tsv")
+    "ArcadeInfo.xml", "Media", "guest_image.bin", "high_scores.tsv", "userdata-location.txt")
 $forbiddenPatterns = @("*.pdb", "*.xex", "*.bin", "*.log", "*.ilk", "*.exp", "*.lib", "*.ps1", "*.xzp", "*.xwb",
     "*.xur", "*.ttf", "*.dmp", "*.tmp")
 foreach ($item in $staged) {

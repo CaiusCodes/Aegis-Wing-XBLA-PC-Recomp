@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 
+#include <imgui.h>
 #include <rex/ui/imgui_dialog.h>
 
 class AegisWingPcSettingsDialog final : public rex::ui::ImGuiDialog {
@@ -21,6 +22,19 @@ class AegisWingPcSettingsDialog final : public rex::ui::ImGuiDialog {
   // Hides the pause captions and cancels any scheduled re-show.
   void ClearPauseMenuLabels();
   void SchedulePauseMenuLabels(double delay_seconds);
+  // Testing (aw_test_script "Display"): the Display page, when Settings is open.
+  void TestOpenDisplayPage() {
+    if (visible_ && !closing_ && !keys_page_) OpenDisplayPage();
+  }
+  // Testing (aw_test_script "UpdatesRow"): highlights Check for Updates.
+  void TestSelectUpdatesRow();
+
+ // This dialog lives all game (it also keeps the menu mouse mode, the
+  // version label and the title prompt up to date). Closed, it only needs to
+  // draw with the game's own frames; the window repainting at the display's
+  // full rate for it cost CPU for nothing (160 presents/s for a 60 fps game).
+  // Open, it repaints continuously for smooth hover and typing.
+  bool WantsContinuousRedraw() const override { return visible_; }
 
  protected:
   void OnDraw(ImGuiIO& io) override;
@@ -36,6 +50,21 @@ class AegisWingPcSettingsDialog final : public rex::ui::ImGuiDialog {
   void EndNameEdit(bool keep);
   // Typing, Backspace, Enter and Esc while the name is being edited.
   void UpdateNameEdit(ImGuiIO& io);
+
+  // Display page: the display and performance rows.
+  void OpenDisplayPage();
+  void CloseDisplayPage();
+  void StepRow(int direction);
+
+  // Keyboard Controls page: the keyboard binds of the controller buttons.
+  void OpenKeysPage();
+  void CloseKeysPage();
+  void ActivateKeyCell(int cell);
+  void AssignKey(int cell, const std::string& key);
+  bool CaptureKey(std::string* key);
+  void UpdateKeysPage(uint32_t gamepad_pressed);
+  void DrawKeysPage(ImGuiIO& io, ImDrawList* draw_list, float scale, ImVec2 offset,
+                    ImFont* regular_font, ImFont* bold_font);
 
   // The native Settings scene under this panel acts on the A keystroke (save
   // and close) and the game reads every bound key, so while the Player Name
@@ -56,6 +85,14 @@ class AegisWingPcSettingsDialog final : public rex::ui::ImGuiDialog {
   std::string player_name_;
   bool editing_name_ = false;
   std::string name_edit_;
+
+  bool display_page_ = false;
+  bool keys_page_ = false;
+  int key_cell_ = 0;
+  int capturing_cell_ = -1;    // the cell waiting for its new key, -1 none
+  bool capture_armed_ = false; // the key that started the capture is released
+  std::string keys_note_;      // what the last change did
+  bool suppress_click_ = false; // this frame's click was taken as a key
   std::chrono::steady_clock::time_point name_edit_started_{};
 
   bool visible_ = false;
@@ -68,11 +105,22 @@ class AegisWingPcSettingsDialog final : public rex::ui::ImGuiDialog {
   int sound_volume_ = 100;
   int music_volume_ = 100;
   int display_mode_ = 0;
+  int upscaling_ = 0;
+  int render_scale_ = 1;
+  int anti_aliasing_ = 0;
   int resolution_ = 1;
   bool vsync_ = true;
   bool show_fps_ = false;
   uint32_t previous_gamepad_buttons_ = 0;
   uint32_t previous_help_gamepad_buttons_ = 0;
+  // Host captions follow the game's front scene (AegisWingApp::FrontScene).
+  uint32_t help_front_ = 0;      // the Help & Options scene, learnt while its captions show
+  bool help_back_pending_ = false;  // B left a Help child page: captions wait for Help
+  uint32_t help_back_from_ = 0;     // the child page in front when B was pressed
+  std::chrono::steady_clock::time_point help_back_deadline_{};
+  uint32_t closing_front_ = 0;      // the Settings scene when leaving it began
+  uint32_t caption_front_ = 0;      // the front scene when it last changed, and when
+  std::chrono::steady_clock::time_point caption_front_since_{};
   bool pause_labels_pending_ = false;
   std::chrono::steady_clock::time_point pause_labels_show_at_{};
   uint32_t previous_confirm_gamepad_buttons_ = 0;

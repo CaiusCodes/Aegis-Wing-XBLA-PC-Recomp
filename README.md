@@ -1,128 +1,137 @@
 # Aegis Wing XBLA PC Recomp
 
-A native Windows PC version of **Aegis Wing**, the 2007 Xbox Live Arcade
-shoot-'em-up, created through static recompilation with
-[ReXGlue](https://github.com/rexglue/rexglue-sdk). It supports up to 4K
-resolution and a stable 60 FPS for gameplay. Keyboard and mouse, Xbox controllers,
-local four-player co-op, LAN and online multiplayer has also been added through virtual LAN
-services.
+A native Windows PC port of **Aegis Wing**, the 2007 Xbox Live Arcade co-op shoot-'em-up, built using [ReXGlue](https://github.com/rexglue/rexglue-sdk) static recompilation.
 
-> **You need your own copy of Aegis Wing.** This project contains no original
-> game executable, graphics, sound, music or other game data. The first time
-> you start it, it reads the Xbox 360 Aegis Wing package you provide, checks
-> that it is the supported version and imports the game data into its own
-> folder on your PC.
+Play at **up to 4K and 60 FPS** with keyboard and mouse or an Xbox controller, four-player local co-op, and LAN / Virtual LAN multiplayer. No emulator required.
 
-If you enjoy the Aegis Wing XBLA PC Recomp and would like to support future projects, you can tip me on Ko-fi.
+**Free and open-source.**
 
-[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
+Like the recomp and want to support future projects? You can
+tip me on [Ko-fi](https://ko-fi.com/caiuscodes).
 
-![Main menu](docs/screenshots/main-menu.png)
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/caiuscodes)
 
-## Requirements
+![Aegis Wing Main Menu](docs/screenshots/main-menu.jpg)
 
-- Windows 10 or 11, 64-bit
-- A graphics card with DirectX 12 support
-- Your own Aegis Wing Xbox Live Arcade package (the Xbox 360 game file for
-  Title ID `5841083C`)
+> **You must provide your own copy of Aegis Wing XBLA.** No original game files or assets are distributed with this project. The launcher imports the required files from your Xbox 360 game package during first-time setup.
 
-Nothing else needs installing; the Visual C++ runtime is included. An Xbox
-controller is optional.
+## Download & Installation
 
-## Install and play
+**[Download the latest release](https://github.com/CaiusCodes/Aegis-Wing-XBLA-PC-Recomp/releases)**
 
-1. Download the release ZIP from the
-   [Releases](https://github.com/CaiusCodes/Aegis-Wing-XBLA-PC-Recomp/releases)
-   page and extract it to a writable folder (not Program Files).
-2. Open **Aegis Wing.exe**. The first time, a setup window opens. If your
-   package sits beside it (or in a `Game Package` folder next to it) it is
-   found and imported automatically; otherwise drag it onto the window or
-   choose **Browse package**. The window tells you straight away if it is the
-   wrong file or an unsupported version.
-3. Pick any optional extras (Unlock Stage Select, fullscreen, desktop
-   shortcut; all off unless ticked), then press **PLAY**.
+1. Download the latest ZIP and extract the **Aegis Wing** folder (not into Program Files).
+2. Run `Aegis Wing.exe`.
+3. Select your Aegis Wing XBLA package using **Browse Package**, or place it alongside the executable for automatic detection. Game files already extracted from the package (a folder with `default.xex` and `Media`) work too.
+4. Choose your preferred options: Unlock Stage Select, fullscreen, desktop shortcut and where to keep your saves.
+5. Click **Play**.
 
 ![Setup window](docs/screenshots/setup.png)
 
-From then on `Aegis Wing.exe` starts the game straight away. The game runs
-from `resources\runtime`, the imported game data is in `resources\assets` and
-saves, high scores and settings are in `resources\userdata`, so the folder can
-be moved or backed up as a whole. Start `Aegis Wing.exe --setup` to change the
-extras or import again; your saves and settings are kept. Coming from release
-0.9.0 or 0.9.1 (Setup Aegis Wing.exe and a Game folder)? Extract this release
-next to it or inside it and the old install is found, with your saves and
-settings carried over; the old folder is never changed.
+After setup, simply run `Aegis Wing.exe` to play. Your original game package is no longer needed.
 
-The launcher only reads your package and never changes it. It needs no
-installation, no administrator rights and writes nothing to the registry.
-Neither it nor the game contacts Xbox Live.
+**To reopen setup:** run `Aegis Wing.exe --setup` (for example from a shortcut).
+
+The installation is portable, with imported game files, saves and settings stored inside the game folder, or your saves in a folder of your choice.
+
+### System Requirements
+
+- Windows 10 or 11 (64-bit)
+- DirectX 12 or Vulkan-compatible graphics card
+- Your own Aegis Wing XBLA package (Title ID `5841083C`, supported build only)
 
 ## Features
 
-- **Native Windows PC build**: no emulator, runs as a normal Windows program
-- **Single player** and **local co-op for up to 4 players** on one PC
-- **LAN multiplayer** (Multiplayer → Join LAN Game / Create LAN Game), and
-  **online multiplayer** through virtual LAN services such as ZeroTier,
-  Radmin VPN and Tailscale
-  ![Multiplayer menu with Join LAN Game, Create LAN Game and Local Multiplayer](docs/screenshots/multiplayer-menu.png)
-- **Up to 4K** (3840×2160) with **stable 60 FPS** gameplay
-- **Xbox controller** support, plus full **keyboard and mouse** support in
-  menus and gameplay
-- **Settings menu** (Help & Options → Settings): player name, sound and music
-  volume, windowed or fullscreen, resolution, VSync and an optional FPS
-  counter
-  ![Settings menu with player name, volume, display mode, resolution, VSync and FPS counter](docs/screenshots/settings.png)
-- **Local high scores** in place of the Xbox LIVE leaderboards
-- Optional **Stage Select unlock** in the setup window (normally earned by
-  completing the game on Insane)
-- **Portable**: saves, settings and high scores stay in the game folder
+### Graphics & Performance
 
-### Controls
+- **Native PC Rendering:** DirectX 12 on NVIDIA, Vulkan on other graphics cards
+- **Up to 4K resolution** with fullscreen and windowed modes
+- **60 FPS** gameplay with V-Sync and optional FPS counter
+- **Render Scale:** 1x, 2x or 3x
+- **AMD FSR 1** and **AMD CAS** upscaling and sharpening
+- **FXAA** anti-aliasing
+- Light on hardware: low CPU and GPU use, with light defaults for older PCs
 
-| Key / button | Action |
+![Aegis Wing Gameplay](docs/screenshots/gameplay.jpg)
+
+### Controls & Quality of Life
+
+- Full **keyboard and mouse** support with rebindable keys
+- **Xbox controller** support
+- Native PC settings menus
+- Optional Stage Select unlock (normally earned by finishing the game on Insane)
+- Local high scores in place of the Xbox LIVE leaderboards
+- Built-in update checker
+- Portable installation with local saves and settings
+
+![Display settings](docs/screenshots/display-settings.jpg)
+
+### Multiplayer
+
+- **Four-player local co-op** on one PC
+- **LAN multiplayer** and online play through Virtual LAN services
+- Compatible with Radmin VPN, ZeroTier, Tailscale and Hamachi
+
+![Aegis Wing Multiplayer Menu](docs/screenshots/multiplayer-menu.png)
+
+## Keyboard & Mouse Controls
+
+| Key | Action |
 |---|---|
-| Arrow keys | Fly, move through menus |
-| Space | A (fire, confirm) |
-| Shift | B (back) |
-| Escape | Back in menus, pause during play |
+| Arrow Keys / W, A, S, D | Fly / Aim |
+| Space / Left Click | Fire primary weapon (A) |
+| Shift / Right Click | Fire secondary weapon (B) |
+| X / R | Attach / Detach (X) |
+| Y / E | Y |
+| Q, F | Left and right bumpers |
+| Esc | Pause / Back in menus |
 | Enter | Start |
-| X, Y | X and Y buttons |
-| Mouse | Point at menu items; left click is A, right click is B |
+| Mouse | Point at and click menu items |
 
-An Xbox controller works as on the console. Without a controller, the title
-screen says *Press Any Key*, and any key or click continues.
+Keys can be customised under **Help & Options → Settings → Keyboard Controls**.
 
-## Known limitations
+Xbox controllers use the original console controls.
 
-- Windows only for now.
-- Only the Xbox Live Arcade release with Title ID `5841083C` (game program
-  version 0.0.1.3) is supported; the launcher refuses other builds.
-- Xbox LIVE features are not available: multiplayer works through LAN or a
-  virtual LAN only, and achievements and online leaderboards are replaced or
-  removed.
-- The launcher and the game are not digitally signed, so Windows SmartScreen
-  may warn the first time; choose *More info* → *Run anyway*. Windows also
-  asks for network access the first time you join or create a LAN game.
+## Updates
 
-If something goes wrong, include the newest files from
-`resources\runtime\logs` when reporting it.
+Check for new versions through **Help & Options → Settings → Check for Updates**. It asks GitHub for the newest release only when you choose it, and opens the download page if one is out.
 
-## For Developers
+To update, download the latest release ZIP and extract it over your existing installation. Your imported game files, saves and settings are kept.
 
-Building from source. You need Git, CMake, Ninja, Clang and Windows PowerShell, plus
-your own Aegis Wing package.
+Older installations using a separate setup executable and `Game` folder can also be imported during setup.
 
-ReXGlue is the `rexglue-sdk` submodule, pinned to upstream v0.9.0. This
-project's changes to it are kept in `patches/rexglue.patch`, which CMake
-applies automatically. ReXGlue's dependencies are nested deeply, so enable
-long paths when cloning:
+## Known Limitations
+
+- Windows only.
+- Only the supported Aegis Wing XBLA build (Title ID `5841083C`) is accepted.
+- Xbox LIVE features are replaced: multiplayer runs over LAN or Virtual LAN, and high scores are kept locally.
+- Windows SmartScreen may warn about the unsigned executable (choose **More info → Run anyway**).
+- Windows Firewall may request permission for multiplayer connections.
+
+## Reporting Issues
+
+Found a bug? [Open a GitHub Issue](https://github.com/CaiusCodes/Aegis-Wing-XBLA-PC-Recomp/issues) and include your latest log from:
+
+`resources\runtime\logs\`
+
+**For performance or stuttering issues:**
+
+1. Open `resources\userdata\aegis_wing.toml`.
+2. Set `vblank_timing_log = true`.
+3. Reproduce the issue and close the game.
+4. Attach the latest `aegis_wing_NNN.log` to your report.
+5. Set it back to `false` afterwards.
+
+Logs never contain your Windows user name.
+
+## Building from Source
+
+You need Git, CMake, Ninja, Clang and Windows PowerShell, plus your own Aegis Wing package. ReXGlue is the `rexglue-sdk` submodule (upstream v0.9.0); this project's changes to it are in `patches/rexglue.patch`, which CMake applies automatically.
 
 ```powershell
 git -c core.longpaths=true clone --recurse-submodules --shallow-submodules https://github.com/CaiusCodes/Aegis-Wing-XBLA-PC-Recomp.git
 ```
 
-Extract your package into `game/`, build the code generator, generate the
-recompiled code from your own `default.xex`, then build the game:
+Extract your package into `game/`, build the code generator, generate the recompiled code from your own `default.xex`, then build the game:
 
 ```powershell
 .\tools\Extract-STFS.ps1 -Path <your package> -OutputDir game
@@ -133,28 +142,18 @@ cmake --preset win-amd64-release
 cmake --build --preset win-amd64-release --parallel
 ```
 
-The game is built to `out/build/win-amd64-release/Aegis Wing.exe`.
-`tools\Regenerate-Code.ps1` checks the XEX, runs the code generator and
-applies the PC changes in `tools/Apply-GeneratedPcPatches.ps1`; the generated
-code is never edited by hand or committed. `.\tools\Make-Release.ps1` builds
-the release ZIP: the launcher (`packaging/launcher`, built by
-`packaging/Build-Launcher.ps1`), the game in `resources\runtime`, README and
-licences; never any game data. A game exe that sits in a folder named
-`runtime` keeps its data in the folder above it; every other build (such as
-`out/build/...`) keeps `assets` and `userdata` beside the exe.
+The game is built to `out/build/win-amd64-release/Aegis Wing.exe`. `.\tools\Make-Release.ps1` builds the release ZIP (launcher, game, README and licences; never any game data). After editing files in `rexglue-sdk`, save them back to the patch with `.\tools\Save-SdkPatch.ps1`; in a clone without submodules, `.\tools\Get-Sdk.ps1` fetches the SDK.
 
-## Licence and credits
+## Development & Credits
 
-This project's own code is released under the BSD 3-Clause licence (see
-[LICENSE](LICENSE), which also lists what it does not cover).
-`tools/Extract-STFS.ps1` and the launcher's package reader
-(`packaging/launcher/stfs.cpp`) are derived from
-[Velocity](https://github.com/hetelek/Velocity) and are GPL-3.0, which makes
-the launcher program (`Aegis Wing.exe` in the release root) GPL-3.0 as a
-whole; the game in `resources\runtime` is a separate program. ReXGlue,
-which includes code derived from [Xenia](https://xenia.jp), and its
-third-party libraries keep their own licences; see
-[packaging/licenses](packaging/licenses).
+This project builds upon the work of:
 
-Aegis Wing, Xbox and Xbox 360 are trademarks or property of Microsoft. This is
-an unofficial fan project, not affiliated with or endorsed by Microsoft.
+- [ReXGlue](https://github.com/rexglue/rexglue-sdk) by Tom Clay and contributors – Static recompilation framework, including code derived from [Xenia](https://xenia.jp).
+- [Velocity](https://github.com/hetelek/Velocity) – Xbox 360 package reader used by the launcher.
+- [AMD FidelityFX](https://gpuopen.com/fidelityfx-superresolution/) – CAS and FSR 1 upscaling.
+
+The project's own code is released under the [BSD 3-Clause licence](LICENSE). The launcher includes GPL-3.0 components derived from Velocity, and third-party dependencies retain their respective licences. See [packaging/licenses](packaging/licenses) for additional terms.
+
+---
+
+*Aegis Wing and Xbox are trademarks or property of Microsoft. This is an independent fan project and is not affiliated with or endorsed by Microsoft.*

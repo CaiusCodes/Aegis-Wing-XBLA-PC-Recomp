@@ -7,11 +7,14 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cctype>
+#include <chrono>
 #include <cstdlib>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <thread>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -30,15 +33,18 @@
 #include <rex/system/xmemory.h>
 #include <rex/ui/keybinds.h>
 #include <rex/ui/window.h>
+#include <rex/ui/presenter.h>
 #include <rex/ui/window_sdl.h>
 
 #include "aegis_wing_crash_report.h"
 #include "aegis_wing_high_scores.h"
 #include "aegis_wing_menu_pointer.h"
 #include "aegis_wing_paths.h"
+#include "aegis_wing_system_info.h"
 #include "aegis_wing_pc_patches.h"
 #include "aegis_wing_pc_settings.h"
 #include "aegis_wing_title_prompt.h"
+#include "aegis_wing_update_check.h"
 
 class AegisWingApp : public rex::ReXApp {
  public:
@@ -296,6 +302,54 @@ class AegisWingApp : public rex::ReXApp {
     return false;
   }
 
+  // Resolve readback ("fast", forced in OnPreSetup) is kept for the menus'
+  // text. In a level it cost ~11 ms of GPU time a frame (Level 1, RTX 4070
+  // Ti: 82% busy with it, 27% without) for nothing the game reads, so it is
+  // paused after a second of uninterrupted gameplay and back on the moment
+  // anything else (pause, game over, stats, loading, menus) is in front.
+  // UI thread, every frame.
+  static void UpdateReadbackForScene() {
+    auto* memory = GetGuestMemory();
+    const bool gameplay = memory && aegis_wing::IsLevelSceneInFront(memory) &&
+                          !IsHighScoresOpen() && !IsPcSettingsOpen() && !IsPauseConfirmOpen();
+    static std::chrono::steady_clock::time_point gameplay_since{};
+    static bool paused = false;
+    if (!gameplay) {
+      gameplay_since = {};
+      if (paused) {
+        rex::cvar::SetFlagByName("readback_resolve_paused", "false");
+        paused = false;
+        REXLOG_INFO("[readback] on (menu or other scene in front)");
+      }
+      return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (gameplay_since == std::chrono::steady_clock::time_point{}) {
+      gameplay_since = now;
+    }
+    if (!paused && now - gameplay_since >= std::chrono::seconds(1)) {
+      rex::cvar::SetFlagByName("readback_resolve_paused", "true");
+      paused = true;
+      REXLOG_INFO("[readback] paused (gameplay)");
+    }
+  }
+
+  // Test runs only (aw_test_script set): logs each change of the game's
+  // front scene, to line screen captures up with the scene transitions.
+  static void LogFrontSceneForTests() {
+    static const bool on = !rex::cvar::GetFlagByName("aw_test_script").empty();
+    static uint32_t last = 0;
+    auto* memory = GetGuestMemory();
+    if (!on || !memory) return;
+    const uint32_t front = rex::memory::load_and_swap<uint32_t>(
+        memory->TranslateVirtual<const uint32_t*>(kFrontSceneAddress));
+    if (front == last) return;
+    last = front;
+    REXLOG_INFO("[test-scene] front {:08X} (pause {:08X}, help {}, settings {})", front,
+                pause_scene_.load(), help_scene_live_.load() ? "live" : "-",
+                IsPcSettingsOpen() ? "open" : "-");
+  }
+
   static bool ShouldShowVersionLabel() {
     const uint32_t main_menu = main_menu_scene_.load(std::memory_order_acquire);
     auto* memory = GetGuestMemory();
@@ -310,6 +364,22 @@ class AegisWingApp : public rex::ReXApp {
 
   static bool IsPauseSceneLive() {
     return pause_scene_.load(std::memory_order_acquire) != 0;
+  }
+
+  // The game's front XUI scene (0 before there is one). Host captions follow
+  // it: they show the moment their own scene is back in front.
+  static uint32_t FrontScene() {
+    auto* memory = GetGuestMemory();
+    if (!memory) {
+      return 0;
+    }
+    return rex::memory::load_and_swap<uint32_t>(
+        memory->TranslateVirtual<const uint32_t*>(kFrontSceneAddress));
+  }
+
+  static bool IsPauseSceneInFront() {
+    const uint32_t pause = pause_scene_.load(std::memory_order_acquire);
+    return pause != 0 && FrontScene() == pause;
   }
 
   static void ShowPauseMenuLabels() {
@@ -543,6 +613,113 @@ class AegisWingApp : public rex::ReXApp {
     SavePcSettings();
   }
 
+  // Upscaling: how the rendered picture is scaled to the window. Off is
+  // bilinear (the original look), Sharpen is AMD CAS, FSR is AMD FSR 1. It is
+  // present_effect in the SDK and applies at once.
+  static int GetPcUpscalingIndex() {
+    const auto effect = rex::cvar::GetFlagByName("present_effect");
+    if (effect == "cas") return 1;
+    if (effect == "fsr") return 2;
+    return 0;
+  }
+
+  static void SetPcUpscalingIndex(int index) {
+    static const char* const kEffects[] = {"bilinear", "cas", "fsr"};
+    if (index < 0 || index > 2) return;
+    rex::cvar::SetFlagByName("present_effect", kEffects[index]);
+    SavePcSettings();
+    REXLOG_INFO("[upscaling] present_effect = {}", kEffects[index]);
+    auto* app = current_instance_;
+    if (!app) return;
+    app->app_context().CallInUIThreadDeferred([app]() {
+      auto* graphics = app->runtime() ? app->runtime()->graphics_system() : nullptr;
+      if (graphics && graphics->presenter()) {
+        graphics->presenter()->ReloadGuestOutputPaintConfigFromCVarsFromUIThread();
+      }
+    });
+  }
+
+  // Render Scale: 1x, 2x or 3x of 1280x720 (aw_render_scale). The GPU
+  // backend sizes its caches by it when it starts, so a new choice applies
+  // when the game restarts (see RenderScaleNeedsRestart).
+  static int GetPcRenderScale() {
+    const int scale = std::atoi(rex::cvar::GetFlagByName("aw_render_scale").c_str());
+    return std::clamp(scale, 1, 3);
+  }
+
+  static void SetPcRenderScale(int scale) {
+    if (scale < 1 || scale > 3) return;
+    rex::cvar::SetFlagByName("aw_render_scale", std::to_string(scale));
+    SavePcSettings();
+  }
+
+  // The scale this run draws at, set once in OnPreSetup.
+  static int ActiveRenderScale() { return render_scale_active_; }
+
+  static bool RenderScaleNeedsRestart() {
+    return render_scale_active_ > 0 && GetPcRenderScale() != render_scale_active_;
+  }
+
+  // Settings opened from the pause menu: a level is in progress, so a new
+  // Render Scale waits for the next start instead of restarting now.
+  static bool IsSettingsFromPause() { return help_session_from_pause_; }
+
+  // Anti-Aliasing: Off, FXAA or FXAA (Extreme) on the final picture. It is
+  // swap_post_effect in the SDK, re-read every vblank, so it applies at once.
+  static int GetPcAntiAliasingIndex() {
+    const auto effect = rex::cvar::GetFlagByName("swap_post_effect");
+    if (effect == "fxaa") return 1;
+    if (effect == "fxaa_extreme") return 2;
+    return 0;
+  }
+
+  static void SetPcAntiAliasingIndex(int index) {
+    static const char* const kEffects[] = {"none", "fxaa", "fxaa_extreme"};
+    if (index < 0 || index > 2) return;
+    rex::cvar::SetFlagByName("swap_post_effect", kEffects[index]);
+    SavePcSettings();
+    REXLOG_INFO("[anti-aliasing] swap_post_effect = {}", kEffects[index]);
+  }
+
+  // Leaving Settings with a new Render Scale: start a fresh copy of the game
+  // with the same command line, then end this one the way Exit Game does.
+  // Settings are saved as they change; the short wait lets the Settings
+  // scene finish writing the profile (volumes) before the process ends.
+  static void RestartForRenderScale() {
+    static std::atomic_bool restarting = false;
+    if (restarting.exchange(true)) return;
+    std::thread([] {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+      wchar_t exe[MAX_PATH];
+      const DWORD length = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+      std::wstring command = GetCommandLineW();
+      const std::wstring directory =
+          std::filesystem::path(exe, exe + length).parent_path().wstring();
+      STARTUPINFOW startup = {sizeof(startup)};
+      PROCESS_INFORMATION process = {};
+      if (length == 0 || length >= MAX_PATH ||
+          !CreateProcessW(exe, command.data(), nullptr, nullptr, FALSE, 0,
+                          nullptr, directory.c_str(), &startup, &process)) {
+        REXLOG_WARN("Render scale: could not restart the game (error {}); "
+                    "the new scale applies next time it starts",
+                    GetLastError());
+        restarting = false;
+        return;
+      }
+      AllowSetForegroundWindow(process.dwProcessId);
+      CloseHandle(process.hThread);
+      CloseHandle(process.hProcess);
+      REXLOG_INFO("Render scale {}x chosen: restarting the game",
+                  GetPcRenderScale());
+      rex::FlushLogging();
+      std::_Exit(0);
+    }).detach();
+  }
+
+  // Saves aegis_wing.toml after the settings panel changed cvars itself
+  // (the Keyboard Controls page).
+  static void SavePcSettingsNow() { SavePcSettings(); }
+
   static void SetPcShowFps(bool enabled) {
     rex::cvar::SetFlagByName("show_fps", enabled ? "true" : "false");
     SavePcSettings();
@@ -566,8 +743,8 @@ class AegisWingApp : public rex::ReXApp {
       int width;
       int height;
     };
-    // Output sizes only. The internal render scale is fixed (see
-    // kRenderScale), so every change here is a live window resize.
+    // Output sizes only. The internal render scale is the separate Render
+    // Scale setting, so every change here is a live window resize.
     constexpr std::array<Resolution, 4> kResolutions = {
         {{1280, 720}, {1920, 1080}, {2560, 1440}, {3840, 2160}}};
     if (index < 0 || index >= static_cast<int>(kResolutions.size())) {
@@ -631,12 +808,13 @@ class AegisWingApp : public rex::ReXApp {
     // Enforce delayed readback even if an older saved config lacks the key.
     // This avoids the visible stalls caused by fully synchronous readback.
     rex::cvar::SetFlagByName("readback_resolve", "fast");
-    // Render internally at a fixed 2x (2560x1440) at every output size. The
-    // GPU backend bakes the scale into its render-target/texture caches and
-    // translated shaders at startup, so it cannot follow live resolution
-    // changes; a fixed scale keeps every output size sharp with no restart.
-    // Overrides any older saved per-resolution value.
-    rex::cvar::SetFlagByName("resolution_scale", std::to_string(kRenderScale));
+    // Render Scale (aw_render_scale, 1x by default for low-end PCs). The GPU
+    // backend bakes the scale into its render-target/texture caches and
+    // translated shaders at startup, so this run keeps the scale it starts
+    // with. resolution_scale belongs to the GPU plugin, which is not loaded
+    // yet: ApplyRenderScaleToGpu sets it in OnCreateDialogs. The old fixed
+    // 2x that earlier releases saved is overridden either way.
+    render_scale_active_ = GetPcRenderScale();
     // LAN play wakes the network only when the player creates or joins a LAN
     // game, but the title reads the profile's sign-in state once at boot. If
     // it sees an offline profile then, joining a LAN lobby later crashes it
@@ -677,6 +855,7 @@ class AegisWingApp : public rex::ReXApp {
   }
 
   void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
+    ApplyRenderScaleToGpu();
     // Players get their settings from the game's own Help & Options >
     // Settings panel, which applies and saves through the config system
     // directly. ReXGlue's developer overlays (F3 debug, F4 runtime settings,
@@ -732,6 +911,151 @@ class AegisWingApp : public rex::ReXApp {
   // void OnPreSetup(rex::RuntimeConfig& config) override {}
   // void OnLoadXexImage(std::string& xex_image) override {}
   // void OnPostSetup() override {}
+ public:
+  // The version, then the PC it runs on (stutter and speed reports).
+  void OnPostSetup() override {
+    REXLOG_INFO("Aegis Wing PC v{}", AEGISWING_VERSION);
+    aegis_wing::LogSystemInfo();
+    aegis_wing::StartGameStepLog(GetGuestMemory());
+    if (rex::cvar::GetFlagByName("aw_effect_selftest") == "true") {
+      StartEffectSelfTest();
+    }
+    if (rex::cvar::GetFlagByName("aw_test_drive") == "true") {
+      StartTestDrive();
+    }
+    if (const std::string script = rex::cvar::GetFlagByName("aw_test_script"); !script.empty()) {
+      StartTestScript(script);
+    }
+  }
+
+  // aw_test_script (main.cpp): plays "12,A,3,Down,..." as waits and presses.
+  static void StartTestScript(std::string script) {
+    std::thread([script]() {
+      using rex::ui::VirtualKey;
+      size_t start = 0;
+      while (start <= script.size()) {
+        const size_t comma = script.find(',', start);
+        std::string step = script.substr(start, comma == std::string::npos ? std::string::npos
+                                                                            : comma - start);
+        start = comma == std::string::npos ? script.size() + 1 : comma + 1;
+        if (step.empty()) continue;
+        if (std::isdigit(static_cast<unsigned char>(step[0]))) {
+          std::this_thread::sleep_for(
+              std::chrono::milliseconds(static_cast<int>(std::atof(step.c_str()) * 1000)));
+          continue;
+        }
+        VirtualKey key = VirtualKey::kNone;
+        if (step == "A") key = VirtualKey::kXInputPadA;
+        if (step == "B") key = VirtualKey::kXInputPadB;
+        if (step == "Start") key = VirtualKey::kXInputPadStart;
+        if (step == "Up") key = VirtualKey::kXInputPadDpadUp;
+        if (step == "Down") key = VirtualKey::kXInputPadDpadDown;
+        if (step == "Left") key = VirtualKey::kXInputPadDpadLeft;
+        if (step == "Right") key = VirtualKey::kXInputPadDpadRight;
+        if (step.rfind("Shot:", 0) == 0) {
+          REXLOG_INFO("[test-script] {}", step);  // a capture marker for the test tools
+          rex::FlushLogging();
+          continue;
+        }
+        if (step == "CheckUpdates") {
+          aegis_wing::StartUpdateCheck();
+          REXLOG_INFO("[test-script] CheckUpdates");
+          continue;
+        }
+        if (step == "UpdatesRow") {
+          if (auto* app = current_instance_) {
+            app->app_context().CallInUIThreadDeferred([app]() {
+              if (app->pc_settings_dialog_) app->pc_settings_dialog_->TestSelectUpdatesRow();
+            });
+          }
+          REXLOG_INFO("[test-script] UpdatesRow");
+          continue;
+        }
+        if (step == "Display") {
+          if (auto* app = current_instance_) {
+            app->app_context().CallInUIThreadDeferred([app]() {
+              if (app->pc_settings_dialog_) app->pc_settings_dialog_->TestOpenDisplayPage();
+            });
+          }
+          REXLOG_INFO("[test-script] Display");
+          continue;
+        }
+        if (key == VirtualKey::kNone) continue;
+        rex::input::mnk::MnkInputDriver::InjectPadKeystroke(static_cast<uint16_t>(key));
+        REXLOG_INFO("[test-script] {}", step);
+        rex::FlushLogging();
+      }
+      REXLOG_INFO("[test-script] done");
+      rex::FlushLogging();
+    }).detach();
+  }
+
+  // aw_test_drive (main.cpp): A x4 and Start from the title into level 1,
+  // then A every half second, logging "[test-drive]" at each step.
+  static void StartTestDrive() {
+    std::thread([] {
+      using rex::ui::VirtualKey;
+      auto press = [](VirtualKey key, const char* what) {
+        rex::input::mnk::MnkInputDriver::InjectPadKeystroke(static_cast<uint16_t>(key));
+        REXLOG_INFO("[test-drive] {}", what);
+      };
+      std::this_thread::sleep_for(std::chrono::seconds(12));
+      const char* const kMenuSteps[] = {"A (title)", "A (Single Player)", "A (options)",
+                                        "A (ready)"};
+      for (const char* step : kMenuSteps) {
+        press(VirtualKey::kXInputPadA, step);
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+      }
+      press(VirtualKey::kXInputPadStart, "Start (start game)");
+      // 20 s in, pause for 6 s (the pause menu over the level), then resume.
+      for (int i = 0; i < 40; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        rex::input::mnk::MnkInputDriver::InjectPadKeystroke(
+            static_cast<uint16_t>(VirtualKey::kXInputPadA));
+      }
+      press(VirtualKey::kXInputPadStart, "Start (pause)");
+      std::this_thread::sleep_for(std::chrono::seconds(6));
+      press(VirtualKey::kXInputPadA, "A (resume)");
+      for (;;) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        rex::input::mnk::MnkInputDriver::InjectPadKeystroke(
+            static_cast<uint16_t>(VirtualKey::kXInputPadA));
+      }
+    }).detach();
+  }
+
+  // aw_effect_selftest (main.cpp): after the title is up, step through the
+  // effects as the Settings page applies them, but without saving.
+  static void StartEffectSelfTest() {
+    std::thread([] {
+      struct Step {
+        const char* upscaling;
+        const char* anti_aliasing;
+      };
+      static const Step kSteps[] = {{"bilinear", "none"}, {"cas", "none"},
+                                    {"fsr", "none"},      {"bilinear", "fxaa"},
+                                    {"bilinear", "fxaa_extreme"}, {"bilinear", "none"}};
+      std::this_thread::sleep_for(std::chrono::seconds(15));
+      for (const Step& step : kSteps) {
+        rex::cvar::SetFlagByName("present_effect", step.upscaling);
+        rex::cvar::SetFlagByName("swap_post_effect", step.anti_aliasing);
+        if (auto* app = current_instance_) {
+          app->app_context().CallInUIThreadDeferred([app]() {
+            auto* graphics = app->runtime() ? app->runtime()->graphics_system() : nullptr;
+            if (graphics && graphics->presenter()) {
+              graphics->presenter()->ReloadGuestOutputPaintConfigFromCVarsFromUIThread();
+            }
+          });
+        }
+        REXLOG_INFO("[effect-test] upscaling {} anti-aliasing {}", step.upscaling,
+                    step.anti_aliasing);
+        rex::FlushLogging();
+        std::this_thread::sleep_for(std::chrono::seconds(4));
+      }
+      REXLOG_INFO("[effect-test] done");
+      rex::FlushLogging();
+    }).detach();
+  }
   // void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {}
   // std::unique_ptr<rex::ui::ImGuiDialog> CreateAchievementsOverlay() override;
   // std::unique_ptr<rex::ui::AchievementNotificationDialog>
@@ -739,7 +1063,22 @@ class AegisWingApp : public rex::ReXApp {
   // void OnShutdown() override {}
   // void OnConfigurePaths(rex::PathConfig& paths) override {}
  private:
-  static constexpr int kRenderScale = 2;
+  // The GPU plugin (and its resolution_scale cvar) is loaded by now and the
+  // emulated GPU is not created yet.
+  static void ApplyRenderScaleToGpu() {
+    const std::string want = std::to_string(render_scale_active_);
+    rex::cvar::SetFlagByName("resolution_scale", want);
+    const std::string now = rex::cvar::GetFlagByName("resolution_scale");
+    if (now == want) {
+      REXLOG_INFO("Render scale {}x ({} x {})", render_scale_active_,
+                  1280 * render_scale_active_, 720 * render_scale_active_);
+    } else {
+      REXLOG_WARN("Render scale: could not set resolution_scale to {} (it is {})",
+                  want, now);
+    }
+  }
+
+  inline static int render_scale_active_ = 0;
 
   // These are the two native volume fields used by the original Audio
   // Settings scene. Keeping the PC panel connected to them preserves the

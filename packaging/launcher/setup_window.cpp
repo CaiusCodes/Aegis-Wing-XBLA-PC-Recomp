@@ -35,16 +35,18 @@ namespace {
 using namespace Gdiplus;
 
 // ------------------------------------------------------------- layout --
-constexpr float kW = 720, kH = 708;
+constexpr float kW = 720, kH = 744;
 constexpr float kUiScale = 1.12f;  // drawn 12% larger than the 96-DPI layout
 constexpr float kRailX0 = 70, kRailX1 = 650, kRailY = 236;
-constexpr float kPanelX = 40, kPanelY = 296, kPanelW = 640, kPanelH = 380;
+constexpr float kPanelX = 40, kPanelY = 296, kPanelW = 640, kPanelH = 416;
 constexpr float kFieldY = 366, kFieldH = 38;
 constexpr float kRowsY = 366, kRowPitch = 28;  // candidate rows when several packages are found
 constexpr int kMaxRows = 4;
 constexpr float kExtrasDivider = 482, kExtrasFirst = 508, kExtraPitch = 36;
+constexpr float kSaveRowY = kExtrasFirst + 3 * kExtraPitch;  // the save folder, below the three extras
 
-enum Control { kNone = -1, kBrowse, kLeft, kPlay, kExtra0, kExtra1, kExtra2, kRow0 };
+// kRow0 stays last: the candidate rows follow it.
+enum Control { kNone = -1, kBrowse, kLeft, kPlay, kExtra0, kExtra1, kExtra2, kSaveChange, kSaveDefault, kRow0 };
 
 enum class Mode { Idle, Choosing, Importing, Ready };
 
@@ -92,7 +94,7 @@ struct ExtraDef {
 };
 const ExtraDef kExtraDefs[3] = {
     {L"Unlock Stage Select", L"Unlocked by completing the game on Insane."},
-    {L"Start in fullscreen", L"Switch at any time from Help and Options, Settings."},
+    {L"Start in fullscreen", L"Switch at any time in Help and Options, Settings, Display."},
     {L"Create desktop shortcut", L"Adds an Aegis Wing icon to your desktop. It follows this folder if you move it."},
 };
 
@@ -126,13 +128,15 @@ class SetupWindow {
   void OnProgress(ProgressMsg* msg);
   void OnDone(ImportResult* result);
   void Play();
+  void ChooseSaveFolder();
+  std::wstring SaveFolderText() const;
   void RequestClose();
   void Invalidate() { InvalidateRect(hwnd_, nullptr, FALSE); }
   void InvalidateStage();
   float ShipTarget() const;
   int Stage() const;
 
-  const Paths& p_;
+  Paths p_;  // a copy: choosing another save folder changes it
   SetupOptions options_;
   HWND hwnd_ = nullptr;
   HICON icon_ = nullptr;
@@ -149,6 +153,7 @@ class SetupWindow {
   bool show_bar_ = false;  // an import is running or just finished: the formation follows progress_
   float ship_f_ = 0, ship_target_ = 0;
   Extras want_, was_;
+  fs::path want_save_, was_save_;  // the player's own save folder; empty: resources\userdata
   Control hover_ = kNone, pressed_ = kNone;
   bool tracking_ = false;
   std::atomic<bool> cancel_{false};
@@ -352,11 +357,13 @@ void SetupWindow::BuildBackdrop(int width, int height) {
 RectL SetupWindow::ControlRect(Control id) const {
   switch (id) {
     case kBrowse: return {518, kFieldY, 138, kFieldH};
-    case kLeft: return {372, 626, 120, 40};
-    case kPlay: return {508, 622, 148, 48};
+    case kLeft: return {372, 662, 120, 40};
+    case kPlay: return {508, 658, 148, 48};
     case kExtra0:
     case kExtra1:
     case kExtra2: return {54, kExtrasFirst + (id - kExtra0) * kExtraPitch - 5, 602, kExtraPitch - 2};
+    case kSaveChange: return {494, kSaveRowY - 1, 76, 30};
+    case kSaveDefault: return {578, kSaveRowY - 1, 78, 30};
     default: {
       const int row = id - kRow0;
       return {64, kRowsY + row * kRowPitch, 442, kRowPitch - 2};
@@ -372,12 +379,14 @@ bool SetupWindow::Enabled(Control id) const {
     case kExtra0:
     case kExtra1:
     case kExtra2: return true;
+    case kSaveChange: return mode_ != Mode::Importing;
+    case kSaveDefault: return mode_ != Mode::Importing && !want_save_.empty();
     default: return mode_ == Mode::Choosing && id - kRow0 < static_cast<int>(candidates_.size());
   }
 }
 
 Control SetupWindow::HitTest(float x, float y) const {
-  std::vector<Control> ids = {kBrowse, kLeft, kPlay, kExtra0, kExtra1, kExtra2};
+  std::vector<Control> ids = {kBrowse, kLeft, kPlay, kExtra0, kExtra1, kExtra2, kSaveChange, kSaveDefault};
   if (mode_ == Mode::Choosing) {
     for (int i = 0; i < static_cast<int>(candidates_.size()) && i < kMaxRows; ++i)
       ids.push_back(static_cast<Control>(kRow0 + i));
@@ -562,7 +571,10 @@ void SetupWindow::Paint(HDC dc) {
         Pen ring(Hex(pal::Gold), 1.4f);
         g.DrawEllipse(&ring, r.x + 8, r.y + 5.5f, 14.0f, 14.0f);
         const Source& s = candidates_[i];
-        std::wstring text = (s.kind == SourceKind::PreviousInstall ? L"Previous install  " : L"") + s.path.wstring();
+        std::wstring text = (s.kind == SourceKind::PreviousInstall ? L"Previous install  "
+                             : s.kind == SourceKind::GameFiles     ? L"Game files  "
+                                                                   : L"") +
+                            s.path.wstring();
         PaintText(g, text, mono_.get(), pal::Cream, RectF(r.x + 32, r.y + 3, r.w - 112, 22));
         PaintText(g, FormatMB(s.bytes), small_.get(), pal::Sand, RectF(r.x + r.w - 82, r.y + 4, 76, 22), StringAlignmentFar);
       }
@@ -619,6 +631,23 @@ void SetupWindow::Paint(HDC dc) {
       PaintText(g, kExtraDefs[i].detail, row_detail_.get(), pal::Sand, RectF(98, y + 16, 556, 18));
     }
 
+    // The save folder: a folder glyph in place of the box, where the saves
+    // go, and Change / Default.
+    {
+      const float y = kSaveRowY;
+      Pen folder(Hex(pal::Gold, 200), 1.3f);
+      folder.SetLineJoin(LineJoinRound);
+      const PointF outline[6] = {PointF(65, y + 8),  PointF(72, y + 8),  PointF(75, y + 11),
+                                 PointF(85, y + 11), PointF(85, y + 22), PointF(65, y + 22)};
+      g.DrawPolygon(&folder, outline, 6);
+      g.DrawLine(&folder, 65.0f, y + 13.5f, 85.0f, y + 13.5f);
+      PaintText(g, L"Save data folder", row_title_.get(), pal::Cream, RectF(98, y - 1, 390, 20));
+      PaintText(g, SaveFolderText(), row_detail_.get(), want_save_.empty() ? pal::Sand : pal::GoldHi,
+                RectF(98, y + 16, 390, 18));
+      PaintButton(g, kSaveChange, L"Change", Enabled(kSaveChange), false, small_.get());
+      PaintButton(g, kSaveDefault, L"Default", Enabled(kSaveDefault), false, small_.get());
+    }
+
     // The two buttons.
     const wchar_t* left = mode_ == Mode::Importing ? (cancel_.load() ? L"Cancelling" : L"Cancel") : L"Close";
     PaintButton(g, kLeft, left, Enabled(kLeft), false, button_.get());
@@ -639,6 +668,8 @@ void SetupWindow::Start() {
   // switches it off.
   was_ = installed_ ? CurrentExtras(p_, options_.shortcut_folder) : Extras{};
   want_ = was_;
+  was_save_ = p_.custom_userdata ? p_.userdata : fs::path();
+  want_save_ = was_save_;
   if (!options_.package.empty()) {
     SelectPath(options_.package);
     return;
@@ -650,7 +681,8 @@ void SetupWindow::Start() {
     hint_ = L"Press Play, change your extras, or import your package again to repair the game data.";
     path_text_ = L"resources\\assets";
     path_set_ = true;
-    status_ = std::wstring(kTick) + L"  Game data imported. Saves and settings are in resources\\userdata.";
+    status_ = std::wstring(kTick) + L"  Game data imported. Saves and settings are in " +
+              (p_.custom_userdata ? p_.userdata.wstring() : std::wstring(L"resources\\userdata")) + L".";
     status_color_ = pal::Ok;
     phase_.clear();
     Invalidate();
@@ -663,7 +695,7 @@ void SetupWindow::Start() {
   UpdateWindow(hwnd_);
   std::vector<Source> found = DetectSources(p_);
   Log(L"Detected " + std::to_wstring(found.size()) + L" package(s) or previous install(s).");
-  hint_ = L"The Xbox 360 Live Arcade file you own. Drag it here or browse for it.";
+  hint_ = L"The Xbox 360 Live Arcade file you own (or its extracted files). Drag it here or browse.";
   if (found.size() == 1) {
     StartImport(found[0]);
   } else if (found.size() > 1) {
@@ -747,7 +779,9 @@ void SetupWindow::StartImport(Source source) {
   heading_ = L"Importing your game data";
   hint_ = L"Your package is only read, never changed. Nothing is installed outside this folder.";
   status_ = std::wstring(kTick) + L"  Aegis Wing  " + kDot + L"  " +
-            (source.kind == SourceKind::PreviousInstall ? L"previous install" : L"Xbox LIVE Arcade package") +
+            (source.kind == SourceKind::PreviousInstall ? L"previous install"
+             : source.kind == SourceKind::GameFiles     ? L"extracted game files"
+                                                        : L"Xbox LIVE Arcade package") +
             L"  " + kDot + L"  Title 5841083C  " + kDot + L"  " + FormatMB(source.bytes);
   status_color_ = pal::Ok;
   phase_ = L"PREPARING";
@@ -808,7 +842,7 @@ void SetupWindow::OnDone(ImportResult* result) {
     status_color_ = result->cancelled ? pal::Sand : pal::Bad;
     detail_ = result->cancelled ? L"" : L"Your package was not changed. Details: resources\\runtime\\logs\\setup.log";
     heading_ = installed_ ? L"Aegis Wing is set up in this folder" : L"Choose your Aegis Wing package";
-    hint_ = L"The Xbox 360 Live Arcade file you own. Drag it here or browse for it.";
+    hint_ = L"The Xbox 360 Live Arcade file you own (or its extracted files). Drag it here or browse.";
   }
   ship_target_ = ShipTarget();
   delete result;
@@ -817,10 +851,67 @@ void SetupWindow::OnDone(ImportResult* result) {
   if (close_after_import_) DestroyWindow(hwnd_);
 }
 
+std::wstring SetupWindow::SaveFolderText() const {
+  if (want_save_.empty()) return L"Default: resources\\userdata in this folder.";
+  return (was_save_ == want_save_ ? L"" : L"New: ") + want_save_.wstring();
+}
+
+// Picks the folder only; the saves move when Play is pressed, like the extras.
+void SetupWindow::ChooseSaveFolder() {
+  IFileOpenDialog* dialog = nullptr;
+  if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog)))) return;
+  DWORD flags = 0;
+  dialog->GetOptions(&flags);
+  dialog->SetOptions(flags | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST | FOS_DONTADDTORECENT);
+  dialog->SetTitle(L"Choose where to keep your Aegis Wing saves and settings");
+  IShellItem* start = nullptr;
+  const fs::path initial = want_save_.empty() ? p_.root : want_save_;
+  if (DirExists(initial) && SUCCEEDED(SHCreateItemFromParsingName(initial.c_str(), nullptr, IID_PPV_ARGS(&start)))) {
+    dialog->SetFolder(start);
+    start->Release();
+  }
+  if (SUCCEEDED(dialog->Show(hwnd_))) {
+    IShellItem* item = nullptr;
+    if (SUCCEEDED(dialog->GetResult(&item))) {
+      PWSTR path = nullptr;
+      if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) {
+        const fs::path picked = SaveFolderFor(path);
+        CoTaskMemFree(path);
+        // Picking resources\userdata itself is the default.
+        want_save_ = _wcsicmp(picked.lexically_normal().c_str(), p_.default_userdata.lexically_normal().c_str()) == 0
+                         ? fs::path()
+                         : picked;
+      }
+      item->Release();
+    }
+  }
+  dialog->Release();
+  Invalidate();
+}
+
 void SetupWindow::Play() {
   if (GameRunning(p_)) {
     MessageBoxW(hwnd_, L"Aegis Wing is already running from this folder.", L"Aegis Wing", MB_OK | MB_ICONINFORMATION);
     return;
+  }
+  if (want_save_ != was_save_) {
+    std::wstring note;
+    const bool moved = SetSaveFolder(p_, want_save_, [this](const fs::path& folder) {
+      const std::wstring text = folder.wstring() +
+                                L"\n\nalready holds Aegis Wing saves. Use the saves already there?\n\n"
+                                L"Yes: use those saves.\nNo: copy your current saves over them.";
+      return MessageBoxW(hwnd_, text.c_str(), L"Aegis Wing", MB_YESNO | MB_ICONQUESTION) == IDYES;
+    }, &note);
+    if (!moved) {
+      MessageBoxW(hwnd_, note.c_str(), L"Aegis Wing", MB_OK | MB_ICONWARNING);
+      Invalidate();
+      return;
+    }
+    was_save_ = want_save_;
+    if (!note.empty()) MessageBoxW(hwnd_, note.c_str(), L"Aegis Wing", MB_OK | MB_ICONINFORMATION);
+    // The extras now read from the new folder: apply only what the player
+    // ticked differently from it.
+    was_ = CurrentExtras(p_, options_.shortcut_folder);
   }
   const std::wstring note = ApplyExtras(p_, want_, was_, options_.shortcut_folder, [this](const fs::path& link) {
     const std::wstring text = L"There is already an Aegis Wing shortcut on your desktop that opens a different copy:\n\n" +
@@ -865,6 +956,8 @@ void SetupWindow::Click(Control id) {
     case kExtra0: want_.stage_select = !want_.stage_select; break;
     case kExtra1: want_.fullscreen = !want_.fullscreen; break;
     case kExtra2: want_.shortcut = !want_.shortcut; break;
+    case kSaveChange: ChooseSaveFolder(); break;
+    case kSaveDefault: want_save_.clear(); break;
     default:
       if (id >= kRow0 && id - kRow0 < static_cast<int>(candidates_.size())) StartImport(candidates_[id - kRow0]);
       break;
@@ -1008,7 +1101,7 @@ int SetupWindow::Run(HINSTANCE instance) {
   ChangeWindowMessageFilterEx(hwnd_, 0x0049 /* WM_COPYGLOBALDATA */, MSGFLT_ALLOW, nullptr);
   ApplyScale(GetDpiForWindow(hwnd_), nullptr);
   heading_ = L"Choose your Aegis Wing package";
-  hint_ = L"The Xbox 360 Live Arcade file you own. Drag it here or browse for it.";
+  hint_ = L"The Xbox 360 Live Arcade file you own (or its extracted files). Drag it here or browse.";
   SetTimer(hwnd_, kAnimationTimer, 16, nullptr);
   ShowWindow(hwnd_, SW_SHOWNORMAL);
   SetForegroundWindow(hwnd_);

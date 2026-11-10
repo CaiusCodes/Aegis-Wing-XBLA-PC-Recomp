@@ -10,6 +10,7 @@
 
 #include <cctype>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include <rex/filesystem.h>
@@ -26,14 +27,33 @@ inline std::filesystem::path DataRoot() {
 }
 
 inline std::filesystem::path AssetsPath() { return DataRoot() / "assets"; }
-inline std::filesystem::path UserDataPath() { return DataRoot() / "userdata"; }
 
-// The settings file: userdata\aegis_wing.toml in the release, beside the exe
-// in every other build.
-inline std::filesystem::path ConfigPath() {
+// True in the release layout (this exe in resources\runtime).
+inline bool ReleaseLayout() { return DataRoot() != rex::filesystem::GetExecutableFolder(); }
+
+// Saves, settings and caches: resources\userdata, or in the release the
+// folder the player chose in setup, which the launcher writes as one UTF-8
+// line to resources\userdata-location.txt (empty: the default).
+inline std::filesystem::path UserDataPath() {
   const auto root = DataRoot();
-  return root == rex::filesystem::GetExecutableFolder() ? root / "aegis_wing.toml"
-                                                        : root / "userdata" / "aegis_wing.toml";
+  if (ReleaseLayout()) {
+    std::ifstream file(root / "userdata-location.txt", std::ios::binary);
+    std::string line;
+    if (file && std::getline(file, line)) {
+      if (line.rfind("\xEF\xBB\xBF", 0) == 0) line.erase(0, 3);
+      while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
+      const std::filesystem::path chosen(
+          std::u8string(reinterpret_cast<const char8_t*>(line.data()), line.size()));
+      if (!line.empty() && chosen.is_absolute()) return chosen;
+    }
+  }
+  return root / "userdata";
+}
+
+// The settings file: aegis_wing.toml in the save folder in the release,
+// beside the exe in every other build.
+inline std::filesystem::path ConfigPath() {
+  return ReleaseLayout() ? UserDataPath() / "aegis_wing.toml" : DataRoot() / "aegis_wing.toml";
 }
 
 }  // namespace aegis_wing

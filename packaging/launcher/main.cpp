@@ -7,8 +7,9 @@
 //
 // For automated tests (no window):
 //   --setup --unattended [--package <file or folder>] [--extras stageselect,fullscreen,shortcut]
-//           [--shortcut-folder <dir>]
-//   Exit code 0 imported, 1 failed, 2 several packages found (pass --package), 3 none found.
+//           [--shortcut-folder <dir>] [--save-folder <dir> | --save-folder default]
+//   Exit code 0 imported, 1 failed, 2 several packages found (pass --package), 3 none found,
+//   4 the save folder could not be changed.
 //
 // Any other arguments are passed on to the game.
 //
@@ -31,7 +32,7 @@ namespace {
 
 using namespace aw;
 
-int RunUnattended(const Paths& p, const SetupOptions& options, const std::wstring& extras) {
+int RunUnattended(Paths p, const SetupOptions& options, const std::wstring& extras, const std::wstring& save_folder) {
   Log(L"Unattended setup");
   std::vector<Source> found;
   std::wstring why;
@@ -49,6 +50,13 @@ int RunUnattended(const Paths& p, const SetupOptions& options, const std::wstrin
   const fs::path saves_from = found[0].kind == SourceKind::PreviousInstall ? found[0].path : FindPreviousInstall(p);
   ImportResult result = Import(p, found[0], saves_from, cancel, nullptr);
   if (!result.ok) return 1;
+  if (!save_folder.empty()) {
+    std::wstring note;
+    const fs::path folder = save_folder == L"default" ? fs::path() : SaveFolderFor(fs::absolute(save_folder));
+    const bool moved = SetSaveFolder(p, folder, nullptr, &note);
+    if (!note.empty()) Log(L"Unattended: " + note);
+    if (!moved) return 4;
+  }
   Extras want;
   want.stage_select = extras.find(L"stageselect") != std::wstring::npos;
   want.fullscreen = extras.find(L"fullscreen") != std::wstring::npos;
@@ -65,7 +73,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   int argc = 0;
   LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
   bool setup = false, unattended = false;
-  std::wstring extras;
+  std::wstring extras, save_folder;
   SetupOptions options;
   for (int i = 1; i < argc; ++i) {
     const std::wstring arg = argv[i];
@@ -79,6 +87,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
       extras = argv[++i];
     } else if (arg == L"--shortcut-folder" && i + 1 < argc) {
       options.shortcut_folder = argv[++i];
+    } else if (arg == L"--save-folder" && i + 1 < argc) {
+      save_folder = argv[++i];
     } else {
       options.game_args += (options.game_args.empty() ? L"" : L" ") + Quote(arg);
     }
@@ -94,6 +104,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   if (!installed) {
     RecoverInterruptedSwap(p);
     installed = IsInstalled(p, &missing);
+  }
+  // A save folder of the player's own that cannot be reached (a drive that
+  // is not connected): say so and open setup rather than starting the game
+  // with no saves.
+  if (installed && !setup && options.package.empty() && !SaveFolderReachable(p)) {
+    LogTo(p.logs);
+    Log(L"Save folder not reachable: " + p.userdata.wstring());
+    const std::wstring text = L"Your Aegis Wing save folder cannot be reached:\n\n" + p.userdata.wstring() +
+                              L"\n\nIf it is on a drive that is not connected, connect it and start Aegis Wing "
+                              L"again. Setup opens now so you can choose another folder.";
+    MessageBoxW(nullptr, text.c_str(), L"Aegis Wing", MB_OK | MB_ICONWARNING);
+    setup = true;
   }
   if (installed && !setup && options.package.empty()) {
     if (GetFileAttributesW(p.config.c_str()) == INVALID_FILE_ATTRIBUTES) {
@@ -136,7 +158,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   LogTo(p.logs);
   options.forced = installed;
   options.reason = installed ? L"--setup" : L"missing " + missing;
-  const int code = unattended ? RunUnattended(p, options, extras) : RunSetupWindow(instance, p, options);
+  const int code = unattended ? RunUnattended(p, options, extras, save_folder) : RunSetupWindow(instance, p, options);
   if (mutex) {
     ReleaseMutex(mutex);
     CloseHandle(mutex);

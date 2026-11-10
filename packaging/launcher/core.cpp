@@ -274,7 +274,20 @@ Paths MakePaths() {
   p.runtime = p.resources / L"runtime";
   p.game_exe = p.runtime / L"Aegis Wing.exe";
   p.assets = p.resources / L"assets";
-  p.userdata = p.resources / L"userdata";
+  p.default_userdata = p.resources / L"userdata";
+  p.userdata_pointer = p.resources / L"userdata-location.txt";
+  p.userdata = p.default_userdata;
+  std::string pointed;
+  if (ReadAll(p.userdata_pointer, &pointed)) {
+    if (pointed.rfind("\xEF\xBB\xBF", 0) == 0) pointed.erase(0, 3);  // edited with a BOM
+    while (!pointed.empty() && (pointed.back() == '\r' || pointed.back() == '\n' || pointed.back() == ' '))
+      pointed.pop_back();
+    const fs::path folder = fs::path(Widen(pointed));
+    if (!pointed.empty() && folder.is_absolute()) {
+      p.userdata = folder;
+      p.custom_userdata = true;
+    }
+  }
   p.config = p.userdata / L"aegis_wing.toml";
   p.logs = p.runtime / L"logs";
   p.staging = p.resources / L".import";
@@ -285,8 +298,38 @@ Paths MakePaths() {
 // ================================================================== log ==
 void LogTo(const fs::path& logs_dir) { g_log_dir = logs_dir; }
 
-void Log(const std::wstring& line) {
+// The line with the user's profile folder ("C:\Users\<name>") written as
+// %USERPROFILE%: players attach setup.log to public bug reports, and the
+// folder name is usually their Windows user name. Case-insensitive.
+static std::wstring RedactProfile(const std::wstring& line) {
+  static const std::wstring profile = [] {
+    wchar_t buffer[MAX_PATH] = {};
+    const DWORD length = GetEnvironmentVariableW(L"USERPROFILE", buffer, MAX_PATH);
+    std::wstring value = length > 0 && length < MAX_PATH ? std::wstring(buffer, length) : std::wstring();
+    while (!value.empty() && (value.back() == L'\\' || value.back() == L'/')) value.pop_back();
+    return value.size() >= 4 ? value : std::wstring();
+  }();
+  if (profile.empty() || line.size() < profile.size()) return line;
+  std::wstring out;
+  size_t copied = 0;
+  for (size_t i = 0; i + profile.size() <= line.size();) {
+    if (_wcsnicmp(line.c_str() + i, profile.c_str(), profile.size()) == 0) {
+      out.append(line, copied, i - copied);
+      out += L"%USERPROFILE%";
+      i += profile.size();
+      copied = i;
+    } else {
+      ++i;
+    }
+  }
+  if (copied == 0) return line;
+  out.append(line, copied, std::wstring::npos);
+  return out;
+}
+
+void Log(const std::wstring& raw_line) {
   if (g_log_dir.empty()) return;
+  const std::wstring line = RedactProfile(raw_line);
   std::error_code ec;
   fs::create_directories(g_log_dir, ec);
   const fs::path file = g_log_dir / L"setup.log";
@@ -362,6 +405,7 @@ bool GameRunning(const Paths& p) {
 // ============================================================== sources ==
 std::wstring Describe(const Source& s) {
   if (s.kind == SourceKind::PreviousInstall) return L"Previous install: " + s.path.wstring();
+  if (s.kind == SourceKind::GameFiles) return L"Game files: " + s.path.wstring();
   return s.path.wstring();
 }
 
@@ -415,11 +459,44 @@ bool CheckPreviousInstall(const fs::path& folder, fs::path* game_dir, uint64_t* 
   return false;
 }
 
+bool CheckGameFiles(const fs::path& folder, fs::path* root) {
+  auto complete = [](const fs::path& dir) {
+    for (const wchar_t* name : kRequiredGameFiles) {
+      if (!FileExists(dir / name)) return false;
+    }
+    return true;
+  };
+  if (complete(folder)) {
+    *root = folder;
+    return true;
+  }
+  std::error_code ec;
+  for (fs::recursive_directory_iterator it(folder, fs::directory_options::skip_permission_denied, ec), end;
+       !ec && it != end; it.increment(ec)) {
+    std::error_code type_ec;
+    if (!it->is_directory(type_ec) || it->is_symlink(type_ec)) continue;
+    // An install's game data is a previous install, not loose game files.
+    if (_wcsicmp(it->path().filename().c_str(), L"assets") == 0 || it.depth() >= 1) it.disable_recursion_pending();
+    if (_wcsicmp(it->path().filename().c_str(), L"assets") == 0) continue;
+    if (complete(it->path())) {
+      *root = it->path();
+      return true;
+    }
+  }
+  return false;
+}
+
 std::vector<Source> SourcesIn(const fs::path& chosen, std::wstring* why) {
   std::vector<Source> found;
   std::error_code ec;
   const fs::path path = fs::absolute(chosen, ec);
   if (FileExists(path)) {
+    // default.xex picked from a folder of extracted game files: that folder.
+    fs::path files_root;
+    if (_wcsicmp(path.filename().c_str(), L"default.xex") == 0 && CheckGameFiles(path.parent_path(), &files_root)) {
+      found.push_back({SourceKind::GameFiles, files_root, FolderBytes(files_root)});
+      return found;
+    }
     uint64_t bytes = 0;
     if (CheckPackageHeader(path, why, &bytes)) found.push_back({SourceKind::Package, path, bytes});
     return found;
@@ -440,6 +517,15 @@ std::vector<Source> SourcesIn(const fs::path& chosen, std::wstring* why) {
       return found;
     }
     found.push_back({SourceKind::PreviousInstall, game_dir, FolderBytes(game_dir / L"assets")});
+    return found;
+  }
+  fs::path files_root;
+  if (CheckGameFiles(path, &files_root)) {
+    if (SameFile(files_root, MakePaths().assets)) {
+      *why = L"That is this copy's own game data. Choose your Xbox 360 package instead.";
+      return found;
+    }
+    found.push_back({SourceKind::GameFiles, files_root, FolderBytes(files_root)});
     return found;
   }
   Search search;
@@ -480,6 +566,11 @@ std::vector<Source> DetectSources(const Paths& p) {
     if (CheckPreviousInstall(folder, &game_dir, &bytes)) {
       if (PreviousMenusCurrent(game_dir)) AddUnique(found, {SourceKind::PreviousInstall, game_dir, 0});
       continue;  // an install's own files are not searched for packages
+    }
+    fs::path files_root;
+    if (CheckGameFiles(folder, &files_root)) {
+      AddUnique(found, {SourceKind::GameFiles, files_root, FolderBytes(files_root)});
+      continue;
     }
     std::vector<Source> packages;
     FindPackages(folder, 1, search, packages);
@@ -573,6 +664,9 @@ ImportResult Import(const Paths& p, const Source& source, const fs::path& saves_
   int total_files = 0;
   std::vector<fs::path> previous_files;
   const fs::path previous_assets = source.path / L"assets";
+  // Where the files are copied from: a previous install's assets, or the
+  // extracted game files themselves.
+  const fs::path copy_root = source.kind == SourceKind::GameFiles ? source.path : previous_assets;
   if (source.kind == SourceKind::Package) {
     std::wstring why;
     uint64_t bytes = 0;
@@ -590,9 +684,30 @@ ImportResult Import(const Paths& p, const Source& source, const fs::path& saves_
     Log(L"default.xex SHA-256 " + Widen(hash));
     if (hash != kXexSha256)
       return fail(L"This Aegis Wing package carries a different build of the game program than the one this port "
-                  L"was made from, so it cannot be used. Nothing was changed.");
+                  L"was made from, so it cannot be used. Nothing was changed. If you have a different version of "
+                  L"the game, please report it with resources\\runtime\\logs\\setup.log.");
     total = package->total_file_bytes();
     for (const stfs::Entry& e : package->entries()) total_files += e.directory ? 0 : 1;
+  } else if (source.kind == SourceKind::GameFiles) {
+    for (const wchar_t* name : kRequiredGameFiles) {
+      if (!FileExists(copy_root / name))
+        return fail(L"These game files are missing " + std::wstring(name) + L". Choose your Xbox 360 package instead.");
+    }
+    const std::string hash = HashFile(copy_root / L"default.xex");
+    Log(L"game files default.xex SHA-256 " + Widen(hash));
+    if (hash != kXexSha256)
+      return fail(L"These game files are a different build of the game program than the one this port was made "
+                  L"from, so they cannot be used. Nothing was changed. If you have a different version of the "
+                  L"game, please report it with resources\\runtime\\logs\\setup.log.");
+    for (fs::recursive_directory_iterator it(copy_root, fs::directory_options::skip_permission_denied, ec), end;
+         !ec && it != end; it.increment(ec)) {
+      std::error_code type_ec;
+      if (it->is_regular_file(type_ec) && it->path().filename() != kMarkerName) {
+        previous_files.push_back(it->path());
+        total += it->file_size(type_ec);
+      }
+    }
+    total_files = static_cast<int>(previous_files.size());
   } else {
     for (const wchar_t* name : kRequiredGameFiles) {
       if (!FileExists(previous_assets / name))
@@ -675,7 +790,7 @@ ImportResult Import(const Paths& p, const Source& source, const fs::path& saves_
     package.reset();  // the package is closed before anything else happens
   } else {
     for (const fs::path& file : previous_files) {
-      const fs::path target = p.staging / file.lexically_relative(previous_assets);
+      const fs::path target = p.staging / file.lexically_relative(copy_root);
       fs::create_directories(target.parent_path(), ec);
       if (!CopyOne(file, target, &cancel, progress)) {
         if (cancel.load()) return cancelled();
@@ -985,6 +1100,135 @@ std::wstring ApplyExtras(const Paths& p, const Extras& want, const Extras& was, 
     }
   }
   return note;
+}
+
+// ========================================================== save folder ==
+namespace {
+
+// Saves (the game's 5841083C folder) or settings already there.
+bool HasUserData(const fs::path& folder) {
+  return DirExists(folder / L"5841083C") || FileExists(folder / L"aegis_wing.toml");
+}
+
+bool FolderEmpty(const fs::path& folder) {
+  std::error_code ec;
+  return fs::directory_iterator(folder, ec) == fs::directory_iterator() && !ec;
+}
+
+// `inner` is `outer` or somewhere inside it.
+bool Within(const fs::path& inner, const fs::path& outer) {
+  const fs::path a = inner.lexically_normal(), b = outer.lexically_normal();
+  auto ia = a.begin();
+  for (auto ib = b.begin(); ib != b.end(); ++ib, ++ia) {
+    if (ib->empty()) continue;  // a trailing separator
+    if (ia == a.end() || _wcsicmp(ia->c_str(), ib->c_str()) != 0) return false;
+  }
+  return true;
+}
+
+// Copies the saves and settings (not the caches, which are rebuilt) into a
+// folder that has none. Returns the number of files copied, -1 on a failure.
+int CopyUserData(const fs::path& from, const fs::path& to) {
+  int copied = 0;
+  std::error_code ec;
+  for (fs::recursive_directory_iterator it(from, fs::directory_options::skip_permission_denied, ec), end;
+       !ec && it != end; it.increment(ec)) {
+    const fs::path relative = it->path().lexically_relative(from);
+    if (!relative.empty() && _wcsicmp(relative.begin()->c_str(), L"cache") == 0) {
+      if (it->is_directory()) it.disable_recursion_pending();
+      continue;
+    }
+    const fs::path target = to / relative;
+    std::error_code item_ec;
+    if (it->is_directory(item_ec)) {
+      fs::create_directories(target, item_ec);
+    } else if (it->is_regular_file(item_ec)) {
+      fs::create_directories(target.parent_path(), item_ec);
+      if (!CopyOne(it->path(), target, nullptr, nullptr)) return -1;
+      ++copied;
+    }
+  }
+  return ec ? -1 : copied;
+}
+
+}  // namespace
+
+fs::path SaveFolderFor(const fs::path& picked) {
+  if (!DirExists(picked) || FolderEmpty(picked) || HasUserData(picked)) return picked;
+  return picked / L"Aegis Wing";
+}
+
+bool SetSaveFolder(Paths& p, const fs::path& folder, const std::function<bool(const fs::path&)>& keep_existing,
+                   std::wstring* note) {
+  const bool to_default = folder.empty() || SameFile(folder, p.default_userdata) ||
+                          _wcsicmp(folder.lexically_normal().c_str(), p.default_userdata.lexically_normal().c_str()) == 0;
+  const fs::path target = to_default ? p.default_userdata : folder;
+  if (!to_default && !target.is_absolute()) {
+    *note = L"Choose a full folder path for your saves.";
+    return false;
+  }
+  if (!to_default && Within(target, p.resources)) {
+    *note = L"Your saves cannot go inside the game's resources folder. Choose another folder.";
+    return false;
+  }
+  if (Within(target, p.userdata) || Within(p.userdata, target)) {
+    if (_wcsicmp(target.lexically_normal().c_str(), p.userdata.lexically_normal().c_str()) == 0) {
+      *note = L"";
+      return true;  // already there
+    }
+    *note = L"Choose a folder that is not inside (or around) the current save folder.";
+    return false;
+  }
+  if (GameRunning(p)) {
+    *note = L"The save folder was not changed because Aegis Wing is running. Close the game and run setup again.";
+    return false;
+  }
+  std::error_code ec;
+  fs::create_directories(target, ec);
+  // Make sure the folder can be written before pointing the game at it.
+  const fs::path probe = target / L".aw-write-test";
+  if (!DirExists(target) || !WriteAll(probe, "ok")) {
+    *note = L"Aegis Wing cannot write to " + target.wstring() + L". Choose another folder.";
+    return false;
+  }
+  DeleteFileW(probe.c_str());
+
+  std::wstring what;
+  const bool both = HasUserData(target) && HasUserData(p.userdata);
+  if (HasUserData(target) && (!both || !keep_existing || keep_existing(target))) {
+    what = L"That folder already holds Aegis Wing saves, so those are used. ";
+    Log(L"Save folder " + target.wstring() + L" already holds saves; used as they are.");
+  } else if (HasUserData(p.userdata)) {
+    const int copied = CopyUserData(p.userdata, target);
+    if (copied < 0) {
+      *note = L"Your saves could not be copied to " + target.wstring() + L", so the save folder was not changed.";
+      Log(L"FAILED to copy the saves to " + target.wstring());
+      return false;
+    }
+    Log(L"Copied " + std::to_wstring(copied) + L" save files from " + p.userdata.wstring() + L" to " +
+        target.wstring());
+    what = L"Your saves and settings were copied there. The old copy in " + p.userdata.wstring() +
+           L" was left as it is; delete it yourself once you are happy. ";
+  }
+  // The pointer file is kept, empty, for the default: nothing is deleted.
+  if (!WriteAll(p.userdata_pointer, to_default ? std::string() : Narrow(target.wstring()) + "\r\n")) {
+    *note = L"The save folder setting could not be written, so nothing was changed.";
+    return false;
+  }
+  p.userdata = target;
+  p.custom_userdata = !to_default;
+  p.config = p.userdata / L"aegis_wing.toml";
+  Log(L"Save folder: " + target.wstring() + (to_default ? L" (default)" : L""));
+  *note = what.empty() ? L"" : L"Saves now go to " + target.wstring() + L". " + what;
+  while (!note->empty() && note->back() == L' ') note->pop_back();
+  return true;
+}
+
+bool SaveFolderReachable(const Paths& p) {
+  if (!p.custom_userdata) return true;
+  std::error_code ec;
+  fs::create_directories(p.userdata, ec);
+  return DirExists(p.userdata);
 }
 
 void RepairShortcut(const Paths& p, const fs::path& shortcut_folder) {

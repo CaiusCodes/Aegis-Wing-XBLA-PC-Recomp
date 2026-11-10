@@ -166,7 +166,7 @@ if (-not (Select-String -LiteralPath $cmakeFile -Pattern 'libmspack/libmspack/ms
     throw 'The patched thirdparty\CMakeLists.txt does not point libmspack at its real sources.'
 }
 $changed = @(Get-GitOutput -C $sdk status --porcelain --ignore-submodules=all).Count
-Write-Host "$changed file(s) differ from upstream (expected 52)"
+Write-Host "$changed file(s) differ from upstream (expected 77)"
 
 if ($SkipBuild) {
     Write-Host ''

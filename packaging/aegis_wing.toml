@@ -4,8 +4,9 @@ fullscreen = false
 vsync = true
 video_mode_width = 1280
 video_mode_height = 720
-# Fixed internal render scale (2560x1440); the game enforces it at startup.
-resolution_scale = 2
+# Render Scale (Settings): 1 = 1280x720, the light default for low-end PCs;
+# 2 and 3 are sharper. Applies when the game starts.
+aw_render_scale = 1
 # Keeps a saved 4K windowed mode visible on displays smaller than 4K.
 window_width = 1280
 window_height = 720

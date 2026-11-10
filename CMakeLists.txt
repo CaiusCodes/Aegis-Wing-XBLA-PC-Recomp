@@ -60,6 +60,8 @@ set(AEGISWING_SOURCES
     src/aegis_wing_high_scores.cpp
     src/aegis_wing_score_capture.cpp
     src/aegis_wing_usbcam.cpp
+    src/aegis_wing_system_info.cpp
+    src/aegis_wing_update_check.cpp
 )
 
 if(WIN32)
@@ -109,7 +111,58 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_aw_names_sour
 target_include_directories(aegis_wing PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated_include")
 
 if(WIN32)
-    target_link_libraries(aegis_wing PRIVATE dbghelp)
+    target_link_libraries(aegis_wing PRIVATE dbghelp winhttp)
+endif()
+
+# Windows version information for the game and the engine DLLs, as the
+# launcher has (packaging/Build-Launcher.ps1). Unsigned files with blank
+# version details are what antivirus heuristics tend to flag.
+if(WIN32)
+    string(REGEX MATCHALL "[0-9]+" _aw_version_parts "${AEGISWING_VERSION}")
+    list(APPEND _aw_version_parts 0 0 0 0)
+    list(SUBLIST _aw_version_parts 0 4 _aw_version_parts)
+    string(REPLACE ";" "," AEGISWING_VERSION_COMMAS "${_aw_version_parts}")
+    function(aw_version_resource target description original licence)
+        set(_rc "${CMAKE_CURRENT_BINARY_DIR}/version_${target}.rc")
+        file(CONFIGURE OUTPUT "${_rc}" CONTENT [=[
+1 VERSIONINFO
+ FILEVERSION @AEGISWING_VERSION_COMMAS@
+ PRODUCTVERSION @AEGISWING_VERSION_COMMAS@
+ FILEOS 0x40004
+ FILETYPE @_aw_filetype@
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName", "Aegis Wing XBLA Recomp project"
+      VALUE "FileDescription", "@description@"
+      VALUE "ProductName", "Aegis Wing XBLA Recomp"
+      VALUE "ProductVersion", "@AEGISWING_VERSION@"
+      VALUE "FileVersion", "@AEGISWING_VERSION@"
+      VALUE "InternalName", "@original@"
+      VALUE "OriginalFilename", "@original@"
+      VALUE "LegalCopyright", "Open source (@licence@), see licenses folder"
+      VALUE "Comments", "https://github.com/CaiusCodes/Aegis-Wing-XBLA-PC-Recomp"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END
+]=] @ONLY)
+        target_sources(${target} PRIVATE "${_rc}")
+    endfunction()
+    set(_aw_filetype 0x1)
+    aw_version_resource(aegis_wing "Aegis Wing" "Aegis Wing.exe" "BSD-3-Clause")
+    set(_aw_filetype 0x2)
+    foreach(_aw_dll IN ITEMS rexruntime rexgpu-xenos)
+        if(TARGET ${_aw_dll})
+            aw_version_resource(${_aw_dll} "Aegis Wing engine (ReXGlue ${_aw_dll})"
+                "${_aw_dll}.dll" "BSD-3-Clause, ReXGlue")
+        endif()
+    endforeach()
 endif()
 
 if(REXSDK_DIR)

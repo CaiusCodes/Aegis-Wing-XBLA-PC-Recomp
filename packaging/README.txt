@@ -31,7 +31,9 @@ FIRST-TIME SETUP
 2. Open "Aegis Wing.exe". The first time, the setup window opens.
 3. If your package was found it is checked and imported straight away.
    Otherwise drag the package onto the window, or click "Browse package".
-   Setup checks it first and tells you if it is the wrong file or an
+   Game files already extracted from the package (a folder holding
+   default.xex and Media) work too: drop the folder on the window, or browse
+   to its default.xex. Setup checks it first and tells you if it is the wrong file or an
    unsupported version; the import starts as soon as it is accepted, and you
    can cancel it at any time.
 4. Tick any extras you want (all optional, all off unless ticked):
@@ -42,7 +44,10 @@ From then on, opening "Aegis Wing.exe" starts the game straight away.
 Setup only reads your package; it never changes, moves or deletes it, and it
 is not needed again. Nothing is installed outside this folder, no
 administrator rights are needed, and nothing is written to the registry. The
-launcher does not download anything and does not contact Xbox LIVE.
+launcher does not download anything and does not contact Xbox LIVE. The game
+goes online only for LAN games and when you choose Check for Updates (Help &
+Options, Settings), which asks GitHub for the newest version number; if one
+is newer, choosing it again opens the download page in your browser.
 
 CONTROLS
 --------
@@ -61,6 +66,13 @@ as well:
 Without a controller connected, the title screen says "Press Any Key": any
 key or mouse click continues.
 
+To change the keys, open Help & Options, Settings, Keyboard Controls. Pick
+an action, press Enter (or click it), then press the new key or mouse
+button; Esc cancels. Each key does one thing: a key you move is taken off
+the action it was on. Reset to Defaults puts every key back. The menus
+still show controller buttons: Space is A, Shift is B, Enter and Esc are
+Start, unless you change them.
+
 PLAYER NAME AND LAN GAMES
 -------------------------
 
@@ -74,6 +86,29 @@ network or a virtual LAN (Radmin VPN, ZeroTier, Tailscale, Hamachi and the
 like). Windows asks once whether Aegis Wing may use the network the first
 time you join or create a LAN game; allow it for LAN play. Single player and
 local multiplayer never use the network.
+
+GRAPHICS AND PERFORMANCE
+------------------------
+
+The defaults are light, for low-end PCs. Help & Options, Settings, Display
+has (with Display Mode, Resolution, VSync and Show FPS):
+  Render Scale    1x (1280x720, the default), 2x (2560x1440) or 3x
+                  (3840x2160). Higher is sharper but needs a faster graphics
+                  card. Leaving Settings restarts the game to apply it (from
+                  the pause menu it applies the next time the game starts).
+  Upscaling       Off (the original look), Sharpen (AMD CAS) or FSR
+                  (AMD FSR 1). Applies at once.
+  Anti-Aliasing   Off, FXAA or FXAA Extreme: smooths jagged edges. Applies
+                  at once.
+
+The game uses Direct3D 12 on NVIDIA graphics cards and Vulkan on others. To
+choose yourself, set gpu = "d3d12" or gpu = "vulkan" in
+resources\userdata\aegis_wing.toml (gpu = "auto" is the default). The first
+minute on Vulkan can stutter while it prepares its shaders.
+
+If the game stutters, set vblank_timing_log = true in the same file, play
+for a minute and include the newest file from resources\runtime\logs when
+reporting it: it records what each frame waited on.
 
 PORTABLE DATA
 -------------
@@ -92,6 +127,14 @@ Everything stays inside the extracted "Aegis Wing" folder:
 Paths are relative, so the folder can be moved or copied anywhere (a USB
 drive works too). To back up your progress, copy resources\userdata. Do not
 rename the numbered folders inside it.
+
+To keep your saves and settings somewhere else (another drive, a synced
+folder), use Save data folder in setup (start Aegis Wing.exe with --setup):
+Change picks the folder and Default goes back to resources\userdata. Your
+current saves are copied there when you press Play; the old copy is never
+deleted. If the chosen folder already has files in it, an "Aegis Wing"
+folder is made inside it. The choice is stored in
+resources\userdata-location.txt.
 
 SETUP AGAIN, UPDATING AND OLDER RELEASES
 ----------------------------------------

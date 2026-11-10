@@ -44,6 +44,13 @@ Libraries compiled into the ReXGlue runtime
   UTF8-CPP                 Boost 1.0               third-party\utfcpp.txt
   volk                     MIT                     third-party\volk.txt
   Vulkan Memory Allocator  MIT                     third-party\VulkanMemoryAllocator.txt
+  glslang                  BSD 3-Clause and others third-party\glslang.txt
+  SPIRV-Tools              Apache 2.0              third-party\SPIRV-Tools.txt
+  SPIRV-Headers            MIT-style               third-party\SPIRV-Headers.txt
+  Vulkan-Headers           Apache 2.0 / MIT        third-party\Vulkan-Headers.txt
+  AMD FidelityFX CAS and   MIT                     LICENSE-AMD-FidelityFX-CAS-FSR1.txt
+    FSR 1 (Upscaling)
+  disruptorplus            MIT (github.com/lewissbaker/disruptorplus)
   picosha2                 MIT (in its header)
   stb_image                Public domain / MIT (in its header)
   tiny-AES-c               The Unlicense (public domain)

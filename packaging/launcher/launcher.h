@@ -31,7 +31,10 @@ struct Paths {
   fs::path runtime;    // resources\runtime
   fs::path game_exe;   // runtime\Aegis Wing.exe
   fs::path assets;     // resources\assets
-  fs::path userdata;   // resources\userdata
+  fs::path userdata;   // resources\userdata, or the player's own save folder
+  fs::path default_userdata;  // resources\userdata
+  fs::path userdata_pointer;  // resources\userdata-location.txt: the player's own save folder, if any
+  bool custom_userdata = false;
   fs::path config;     // userdata\aegis_wing.toml
   fs::path logs;       // runtime\logs (the game's own logs go there too)
   fs::path staging;    // resources\.import        (an import in progress)
@@ -58,7 +61,9 @@ void RecoverInterruptedSwap(const Paths& p);
 bool GameRunning(const Paths& p);
 
 // -------------------------------------------------------------- sources --
-enum class SourceKind { Package, PreviousInstall };
+// GameFiles: the package's files already extracted (default.xex and Media\),
+// as Velocity, Xenia and similar tools save them.
+enum class SourceKind { Package, PreviousInstall, GameFiles };
 struct Source {
   SourceKind kind = SourceKind::Package;
   fs::path path;        // the package file, or a previous install's Game folder
@@ -72,6 +77,9 @@ bool CheckPackageHeader(const fs::path& file, std::wstring* why, uint64_t* bytes
 // A previous release's Game folder (or a release folder holding one) with the
 // game data in it.
 bool CheckPreviousInstall(const fs::path& folder, fs::path* game_dir, uint64_t* bytes);
+// Extracted game files in the folder or a folder up to two levels inside it
+// (never an install's assets folder). *root is the folder with default.xex.
+bool CheckGameFiles(const fs::path& folder, fs::path* root);
 
 // What a file or folder the player chose (or dropped) contains. Folders are
 // searched a few levels deep. Returns the usable sources; *why explains an
@@ -130,6 +138,25 @@ std::wstring ApplyExtras(const Paths& p, const Extras& want, const Extras& was,
                          const std::function<bool(const fs::path&)>& ask_replace);
 // Points our desktop shortcut at this folder again after the folder moved.
 void RepairShortcut(const Paths& p, const fs::path& shortcut_folder);
+
+// ---------------------------------------------------------- save folder --
+// Saves, high scores, settings and caches live in resources\userdata unless
+// the player chose another folder in setup; resources\userdata-location.txt
+// then names it (the game reads the same file, aegis_wing_paths.h).
+// The folder the saves would go in for a folder the player picked: the
+// folder itself when it is empty or already holds Aegis Wing saves,
+// otherwise an "Aegis Wing" folder inside it.
+fs::path SaveFolderFor(const fs::path& picked);
+// Moves the saves to `folder` (empty: back to resources\userdata). Copies
+// what is there now when the new folder has no saves yet; the old copy is
+// never deleted. When both folders hold saves, keep_existing is asked: true
+// uses the ones already there, false copies the current saves over them
+// (nullptr: keep them). Updates p. *note gets a sentence for the player;
+// false (with *note saying why) when nothing was changed.
+bool SetSaveFolder(Paths& p, const fs::path& folder, const std::function<bool(const fs::path&)>& keep_existing,
+                   std::wstring* note);
+// The player's save folder can be used (it exists or could be created).
+bool SaveFolderReachable(const Paths& p);
 
 // ----------------------------------------------------------------- game --
 // Starts the game from resources\runtime. args are passed on unchanged.
